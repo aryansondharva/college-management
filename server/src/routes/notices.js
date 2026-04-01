@@ -8,7 +8,12 @@ const router = express.Router();
 // GET /api/notices
 router.get('/', authenticate, async (req, res) => {
   try {
-    const result = await db.query('SELECT * FROM notices ORDER BY created_at DESC');
+    const result = await db.query(
+      `SELECT n.*, u.first_name, u.last_name 
+       FROM notices n
+       LEFT JOIN users u ON u.id = n.created_by
+       ORDER BY n.created_at DESC`
+    );
     res.json({ notices: result.rows });
   } catch (err) {
     res.status(500).json({ message: 'Server error.', error: err.message });
@@ -18,10 +23,12 @@ router.get('/', authenticate, async (req, res) => {
 // POST /api/notices
 router.post('/', authenticate, can('create notices'), async (req, res) => {
   try {
-    const { title, content } = req.body;
+    const { title, content, session_id } = req.body;
+    // Combine title + content into the single 'notice' column
+    const noticeText = title ? `**${title}**\n\n${content || ''}` : (content || '');
     const result = await db.query(
-      'INSERT INTO notices (title, content, author_id) VALUES ($1, $2, $3) RETURNING *',
-      [title, content, req.user.id]
+      'INSERT INTO notices (notice, session_id, created_by) VALUES ($1, $2, $3) RETURNING *',
+      [noticeText, session_id || null, req.user.id]
     );
     res.status(201).json({ message: 'Notice posted.', notice: result.rows[0] });
   } catch (err) {
@@ -40,3 +47,4 @@ router.delete('/:id', authenticate, can('delete notices'), async (req, res) => {
 });
 
 module.exports = router;
+
