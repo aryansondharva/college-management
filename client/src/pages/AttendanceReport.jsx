@@ -13,6 +13,7 @@ const AttendanceReport = () => {
     
     const [loading, setLoading] = useState(false);
     const [activeTab, setActiveTab] = useState('daily');
+    const [selectedCourseId, setSelectedCourseId] = useState('');
     
     const [filters, setFilters] = useState({
         session_id: '',
@@ -45,6 +46,9 @@ const AttendanceReport = () => {
         ]);
         setSections(sectRes.data.sections);
         setCourses(courseRes.data.courses);
+        if (courseRes.data.courses.length > 0) {
+            setSelectedCourseId(courseRes.data.courses[0].id.toString());
+        }
     };
 
     const generateReport = async (e) => {
@@ -130,14 +134,14 @@ const AttendanceReport = () => {
             {hasData && (
                 <div className="card shadow-sm border-0 rounded-4 overflow-hidden mb-4 bg-white">
                     <div className="card-header bg-white border-bottom p-0">
-                        <ul className="nav nav-tabs nav-fill border-0">
+                        <ul className="nav nav-tabs nav-fill border-0 flex-nowrap overflow-auto" style={{whiteSpace: 'nowrap'}}>
                             <li className="nav-item">
                                 <button
                                     className={`nav-link border-0 text-dark fw-bold py-3 ${activeTab === 'daily' ? 'active-tab shadow-sm' : 'text-muted bg-light bg-opacity-50'}`}
                                     onClick={() => setActiveTab('daily')}
                                     style={activeTab === 'daily' ? { borderBottom: '3px solid #212529 !important', background: '#fff' } : {}}
                                 >
-                                    <i className="bi bi-calendar-day me-2"></i> Daily Overall View
+                                    <i className="bi bi-calendar-day me-2"></i> Daily Overall
                                 </button>
                             </li>
                             <li className="nav-item">
@@ -146,7 +150,16 @@ const AttendanceReport = () => {
                                     onClick={() => setActiveTab('subject-daily')}
                                     style={activeTab === 'subject-daily' ? { borderBottom: '3px solid #212529 !important', background: '#fff' } : {}}
                                 >
-                                    <i className="bi bi-journal-text me-2"></i> Subject-Wise Daily View
+                                    <i className="bi bi-journal-text me-2"></i> All Subjects Daily
+                                </button>
+                            </li>
+                            <li className="nav-item">
+                                <button
+                                    className={`nav-link border-0 text-dark fw-bold py-3 ${activeTab === 'single-subject' ? 'active-tab shadow-sm' : 'text-muted bg-light bg-opacity-50'}`}
+                                    onClick={() => setActiveTab('single-subject')}
+                                    style={activeTab === 'single-subject' ? { borderBottom: '3px solid #212529 !important', background: '#fff' } : {}}
+                                >
+                                    <i className="bi bi-funnel me-2"></i> Single Subject View
                                 </button>
                             </li>
                             <li className="nav-item">
@@ -155,7 +168,7 @@ const AttendanceReport = () => {
                                     onClick={() => setActiveTab('monthly')}
                                     style={activeTab === 'monthly' ? { borderBottom: '3px solid #212529 !important', background: '#fff' } : {}}
                                 >
-                                    <i className="bi bi-pie-chart me-2"></i> Subject-Wise Monthly Totals
+                                    <i className="bi bi-pie-chart me-2"></i> Monthly Totals
                                 </button>
                             </li>
                         </ul>
@@ -165,14 +178,15 @@ const AttendanceReport = () => {
                         <div className="p-3 bg-white border-bottom d-flex justify-content-between align-items-center">
                             <h6 className="mb-0 fw-bold text-dark">
                                 {activeTab === 'daily' && "Overall Daily Attendance (Any subject present = P)"}
-                                {activeTab === 'subject-daily' && "Granular Daily Attendance (Broken down by specific subjects)"}
+                                {activeTab === 'subject-daily' && "Granular Daily Attendance (Broken down by all subjects)"}
+                                {activeTab === 'single-subject' && "Specific Subject Daily Attendance"}
                                 {activeTab === 'monthly' && "Total Monthly Aggregate (Percentage of classes attended)"}
                             </h6>
                             {activeTab !== 'monthly' && (
                                 <div className="small text-muted d-flex align-items-center">
                                     <span className="text-success fw-bold ms-2 me-1">P</span> Present &middot; 
                                     <span className="text-danger fw-bold ms-2 me-1">A</span> Absent &middot; 
-                                    <span className="bg-dark text-transparent rounded-1 d-inline-block ms-2 me-1" style={{width: '12px', height: '12px'}}></span> No Record
+                                    <span className="bg-white border text-transparent rounded-1 d-inline-block ms-2 me-1" style={{width: '12px', height: '12px'}}></span> No Record
                                 </div>
                             )}
                         </div>
@@ -209,7 +223,7 @@ const AttendanceReport = () => {
                                                         className += ' text-danger fw-bold bg-danger bg-opacity-10';
                                                     } else {
                                                         content = '';
-                                                        className += ' bg-dark';
+                                                        className += ' bg-white';
                                                     }
                                                     
                                                     return (
@@ -265,7 +279,7 @@ const AttendanceReport = () => {
                                                                     className += ' text-danger fw-bold bg-danger bg-opacity-10';
                                                                 } else {
                                                                     content = '';
-                                                                    className += ' bg-dark';
+                                                                    className += ' bg-white';
                                                                 }
                                                                 
                                                                 return (
@@ -284,7 +298,73 @@ const AttendanceReport = () => {
                             </div>
                         )}
 
-                        {/* TAB 3: Subject-Wise Monthly Totals */}
+                        {/* TAB 3: Single Subject View */}
+                        {activeTab === 'single-subject' && (
+                            <div>
+                                <div className="p-3 bg-light border-bottom d-flex align-items-center gap-3">
+                                    <div className="fw-bold small text-muted">Filter by Subject:</div>
+                                    <select 
+                                        className="form-select form-select-sm w-auto shadow-none border-0" 
+                                        value={selectedCourseId}
+                                        onChange={(e) => setSelectedCourseId(e.target.value)}
+                                    >
+                                        {courses.map((c) => (
+                                            <option key={c.id} value={c.id}>{c.name}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <div className="table-responsive">
+                                    <table className="table table-bordered table-sm align-middle text-center mb-0" style={{fontSize: '0.85rem'}}>
+                                        <thead className="bg-white text-dark">
+                                            <tr>
+                                                <th className="p-3 text-start" style={{ minWidth: '200px' }}>Student Name</th>
+                                                {daysArray.map(day => (
+                                                    <th key={day} className="p-2 text-muted fw-bold" style={{width: '35px', minWidth: '35px'}}>{day}</th>
+                                                ))}
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {subjectDailyData.map(student => {
+                                                const subjData = selectedCourseId ? student.subjects[selectedCourseId] : null;
+                                                
+                                                return (
+                                                    <tr key={student.id}>
+                                                        <td className="text-start p-3 fw-bold text-nowrap">
+                                                            {student.name}
+                                                            <div className="text-muted small fw-normal">{student.enrollment_no}</div>
+                                                        </td>
+                                                        {daysArray.map(day => {
+                                                            const status = subjData ? subjData.days[day] : undefined;
+                                                            let content = '';
+                                                            let className = 'p-0 text-center align-middle';
+                                                            
+                                                            if (status === true) {
+                                                                content = 'P';
+                                                                className += ' text-success fw-bold bg-success bg-opacity-10';
+                                                            } else if (status === false) {
+                                                                content = 'A';
+                                                                className += ' text-danger fw-bold bg-danger bg-opacity-10';
+                                                            } else {
+                                                                content = '';
+                                                                className += ' bg-white';
+                                                            }
+                                                            
+                                                            return (
+                                                                <td key={day} className={className} style={{ width: '35px', minWidth: '35px' }}>
+                                                                    {content}
+                                                                </td>
+                                                            );
+                                                        })}
+                                                    </tr>
+                                                );
+                                            })}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* TAB 4: Subject-Wise Monthly Totals */}
                         {activeTab === 'monthly' && (
                             <div className="table-responsive">
                                 <table className="table table-bordered align-middle text-center mb-0">
