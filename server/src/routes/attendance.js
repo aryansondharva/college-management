@@ -132,4 +132,117 @@ router.get('/report', authenticate, can('view attendances'), async (req, res) =>
     }
 });
 
+// GET /api/attendance/daily-report
+// Daily summary for a class
+router.get('/daily-report', authenticate, can('view attendances'), async (req, res) => {
+    try {
+        const { session_id, class_id, section_id, month, year } = req.query;
+        if (!session_id || !class_id || !month || !year) {
+            return res.status(400).json({ message: 'Missing required filters.' });
+        }
+
+        let query = `
+            SELECT 
+                a.student_id, 
+                u.first_name, u.last_name, u.enrollment_no,
+                EXTRACT(DAY FROM a.attendance_date) as day,
+                BOOL_OR(a.present) as is_present
+            FROM attendances a
+            JOIN users u ON u.id = a.student_id
+            WHERE a.session_id = $1 AND a.class_id = $2
+        `;
+        const params = [session_id, class_id];
+
+        if (section_id) {
+            params.push(section_id);
+            query += ` AND a.section_id = $${params.length}`;
+        }
+
+        params.push(month);
+        query += ` AND EXTRACT(MONTH FROM a.attendance_date) = $${params.length}`;
+
+        params.push(year);
+        query += ` AND EXTRACT(YEAR FROM a.attendance_date) = $${params.length}`;
+
+        query += ` GROUP BY a.student_id, u.first_name, u.last_name, u.enrollment_no, EXTRACT(DAY FROM a.attendance_date)`;
+
+        const result = await db.query(query, params);
+
+        const report = {};
+        result.rows.forEach(row => {
+            if (!report[row.student_id]) {
+                report[row.student_id] = {
+                    id: row.student_id,
+                    name: `${row.first_name} ${row.last_name}`,
+                    enrollment_no: row.enrollment_no,
+                    days: {}
+                };
+            }
+            report[row.student_id].days[parseInt(row.day)] = row.is_present;
+        });
+
+        res.json({ report: Object.values(report) });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: 'Server error.', error: err.message });
+    }
+});
+
+// GET /api/attendance/subject-daily-report
+router.get('/subject-daily-report', authenticate, can('view attendances'), async (req, res) => {
+    try {
+        const { session_id, class_id, section_id, month, year } = req.query;
+        if (!session_id || !class_id || !month || !year) {
+            return res.status(400).json({ message: 'Missing required filters.' });
+        }
+
+        let query = `
+            SELECT 
+                a.student_id, 
+                u.first_name, u.last_name, u.enrollment_no,
+                a.course_id,
+                EXTRACT(DAY FROM a.attendance_date) as day,
+                a.present
+            FROM attendances a
+            JOIN users u ON u.id = a.student_id
+            WHERE a.session_id = $1 AND a.class_id = $2
+        `;
+        const params = [session_id, class_id];
+
+        if (section_id) {
+            params.push(section_id);
+            query += ` AND a.section_id = $${params.length}`;
+        }
+
+        params.push(month);
+        query += ` AND EXTRACT(MONTH FROM a.attendance_date) = $${params.length}`;
+
+        params.push(year);
+        query += ` AND EXTRACT(YEAR FROM a.attendance_date) = $${params.length}`;
+
+        const result = await db.query(query, params);
+
+        const report = {};
+        result.rows.forEach(row => {
+            if (!report[row.student_id]) {
+                report[row.student_id] = {
+                    id: row.student_id,
+                    name: `${row.first_name} ${row.last_name}`,
+                    enrollment_no: row.enrollment_no,
+                    subjects: {}
+                };
+            }
+            if (!report[row.student_id].subjects[row.course_id]) {
+                report[row.student_id].subjects[row.course_id] = { days: {} };
+            }
+            report[row.student_id].subjects[row.course_id].days[parseInt(row.day)] = row.present;
+        });
+
+        res.json({ report: Object.values(report) });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: 'Server error.', error: err.message });
+    }
+});
+
 module.exports = router;
