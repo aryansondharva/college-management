@@ -1,0 +1,94 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+:root {
+  --primary-blue: #0061f2;
+  --bg-light: #f8f9fa;
+  --sidebar-text: #6c757d;
+  --card-shadow: 0 0.15rem 1.75rem 0 rgba(33, 40, 50, 0.15);
+}
+
+body {
+  font-family: 'Inter', sans-serif;
+  background-color: var(--bg-light);
+  color: #212832;
+}
+
+.card {
+  box-shadow: var(--card-shadow);
+  border: none;
+  border-radius: 1rem;
+}
+
+.sidebar {
+  min-width: 250px;
+  max-width: 250px;
+  min-height: 100vh;
+  background: white;
+  border-right: 1px solid #e3e6f0;
+}
+
+.sidebar .nav-link {
+  padding: 0.75rem 1.5rem;
+  color: var(--sidebar-text);
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  transition: all 0.2s;
+  border-radius: 0;
+}
+
+.sidebar .nav-link i {
+  font-size: 1.1rem;
+  width: 2rem;
+}
+
+.sidebar .nav-link:hover {
+  background: #f8f9fc;
+  color: var(--primary-blue);
+}
+
+.sidebar .nav-link.active {
+  background: var(--primary-blue);
+  color: white;
+  box-shadow: 0 4px 10px rgba(0, 97, 242, 0.3);
+}
+
+.topbar {
+  background: white;
+  height: 4.375rem;
+  display: flex;
+  align-items: center;
+  padding: 0 1.5rem;
+  border-bottom: 1px solid #e3e6f0;
+}
+
+.badge-count {
+  width: 24px;
+  height: 24px;
+  background: var(--primary-blue);
+  color: white;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.7rem;
+  font-weight: bold;
+}
+
+.progress-custom {
+  height: 12px;
+  border-radius: 10px;
+  background: #e3e6f0;
+  overflow: hidden;
+}
+
+.welcome-card {
+  background: linear-gradient(135deg, #0061f2 0%, #00cfd5 100%);
+  color: white;
+}
+
+.notice-header {
+  border-bottom: 1px solid #e3e6f0;
+  padding-bottom: 1rem;
+  margin-bottom: 1rem;
+}
