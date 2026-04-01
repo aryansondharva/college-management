@@ -21,7 +21,7 @@ const Layout = ({ children }) => {
       <div className="sidebar shadow-sm border-end bg-white" style={{ position: 'sticky', top: 0, height: '100vh', zIndex: 1000, minWidth: '240px' }}>
         <div className="p-3 d-flex align-items-center border-bottom mb-2">
            <i className="bi bi-house-door text-dark me-2 fs-5"></i>
-           <span className="h6 fw-bolder m-0 tracking-tight text-dark">Unifiedtransform</span>
+           <span className="h6 fw-bolder m-0 tracking-tight text-dark">Unitransform</span>
         </div>
         
         <div className="nav flex-column py-3 overflow-auto h-75 custom-scrollbar">
@@ -95,7 +95,7 @@ const Layout = ({ children }) => {
       <div className="flex-grow-1">
         <header className="topbar bg-white px-4 border-bottom shadow-none d-flex justify-content-between align-items-center sticky-top" style={{zIndex: 999}}>
            <div className="text-muted small fw-medium">
-              Current Academic Session <span className="opacity-75">2021 - 2022</span>
+              Current Academic Session <span className="opacity-75">2025-26</span>
            </div>
            
            <div className="d-flex align-items-center">
