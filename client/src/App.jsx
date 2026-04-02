@@ -27,6 +27,10 @@ import ManageGrades from './pages/ManageGrades';
 import ManageCalendar from './pages/ManageCalendar';
 import AttendanceReport from './pages/AttendanceReport';
 import AcademicSettings from './pages/AcademicSettings';
+import ManageAdmitCards from './pages/ManageAdmitCards';
+import ManagePayslips from './pages/ManagePayslips';
+import Employees from './pages/Employees';
+import AddEmployee from './pages/AddEmployee';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import 'bootstrap-icons/font/bootstrap-icons.css';
 import 'bootstrap/dist/js/bootstrap.bundle.min.js';
@@ -65,6 +69,10 @@ function App() {
             <Route path="/grades" element={<ManageGrades />} />
             <Route path="/calendar" element={<ManageCalendar />} />
             <Route path="/attendance/report" element={<AttendanceReport />} />
+            <Route path="/admit-cards" element={<ManageAdmitCards />} />
+            <Route path="/payslips" element={<ManagePayslips />} />
+            <Route path="/employees" element={<Employees />} />
+            <Route path="/employees/add" element={<AddEmployee />} />
             <Route path="/settings" element={<AcademicSettings />} />
           </Route>
         </Routes>

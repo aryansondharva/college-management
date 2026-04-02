@@ -245,4 +245,30 @@ router.get('/subject-daily-report', authenticate, can('view attendances'), async
     }
 });
 
+// GET /api/attendance/today-summary
+router.get('/today-summary', authenticate, async (req, res) => {
+    try {
+        const result = await db.query(`
+            SELECT 
+                sc.name as class_name,
+                s.name as section_name,
+                COUNT(a.id) FILTER (WHERE a.present = true) as present_count,
+                COUNT(a.id) FILTER (WHERE a.present = false) as absent_count
+            FROM school_classes sc
+            JOIN sections s ON s.class_id = sc.id
+            JOIN school_sessions ss ON ss.id = sc.session_id
+            LEFT JOIN attendances a ON a.class_id = sc.id AND a.section_id = s.id AND a.attendance_date = CURRENT_DATE
+            WHERE ss.current = true
+              AND sc.name IN ('Sem-2', 'Sem-4', 'Sem-6', 'Sem-8')
+            GROUP BY sc.id, sc.name, s.id, s.name, sc.numeric_name
+            ORDER BY sc.numeric_name, s.name
+        `);
+        
+        res.json({ summary: result.rows });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: 'Server error.', error: err.message });
+    }
+});
+
 module.exports = router;

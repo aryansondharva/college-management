@@ -1,9 +1,12 @@
 import React, { useEffect, useState, useContext } from 'react';
 import { AuthContext } from '../context/AuthContext';
+import { useNavigate } from 'react-router-dom';
 import api from '../api';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, AreaChart, Area } from 'recharts';
 
 const Dashboard = () => {
     const { user } = useContext(AuthContext);
+    const navigate = useNavigate();
     const [stats, setStats] = useState({
         studentCount: 0,
         teacherCount: 0,
@@ -11,18 +14,32 @@ const Dashboard = () => {
         maleStudentCount: 0,
     });
     const [notices, setNotices] = useState([]);
+    const [attendanceData, setAttendanceData] = useState([]);
+    const [assignments, setAssignments] = useState([]);
+    const [loadingChart, setLoadingChart] = useState(true);
 
     useEffect(() => {
         const fetchData = async () => {
             try {
-                const [res, noticeRes] = await Promise.all([
+                const [res, noticeRes, attendanceRes, assignmentRes] = await Promise.all([
                     api.get('/users/summary'),
-                    api.get('/notices')
+                    api.get('/notices'),
+                    api.get('/attendance/today-summary'),
+                    api.get('/assignments')
                 ]);
                 setStats(res.data);
                 setNotices(noticeRes.data.notices.slice(0, 3));
+                setAssignments(assignmentRes.data.assignments || []);
+                
+                setAttendanceData((attendanceRes.data.summary || []).map(item => ({
+                    className: `${item.class_name} ${item.section_name}`,
+                    present: parseInt(item.present_count || 0),
+                    absent: parseInt(item.absent_count || 0)
+                })));
+                setLoadingChart(false);
             } catch (err) {
                 console.error("Failed to fetch dashboard data", err);
+                setLoadingChart(false);
             }
         };
         fetchData();
@@ -74,6 +91,64 @@ const Dashboard = () => {
                             </div>
                         </div>
                     </div>
+                </div>
+            </div>
+
+            {/* Attendance Chart Section */}
+            <div className="card shadow-sm border-0 rounded-4 p-4 mb-4 bg-white overflow-hidden">
+                <div className="d-flex align-items-center justify-content-between mb-4">
+                    <div>
+                        <h6 className="m-0 fw-bold text-dark fs-5">Students Today's Attendance</h6>
+                        <p className="text-muted small m-0 mt-1">Cross-class participation snapshot for {new Date().toLocaleDateString()}</p>
+                    </div>
+                </div>
+                <div style={{ width: '100%', height: 320 }}>
+                    <ResponsiveContainer>
+                        <AreaChart data={attendanceData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+                            <defs>
+                                <linearGradient id="colorPresent" x1="0" y1="0" x2="0" y2="1">
+                                    <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.1}/>
+                                    <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
+                                </linearGradient>
+                                <linearGradient id="colorAbsent" x1="0" y1="0" x2="0" y2="1">
+                                    <stop offset="5%" stopColor="#ef4444" stopOpacity={0.1}/>
+                                    <stop offset="95%" stopColor="#ef4444" stopOpacity={0}/>
+                                </linearGradient>
+                            </defs>
+                            <XAxis dataKey="className" stroke="#64748b" fontSize={12} tickLine={false} axisLine={false} />
+                            <YAxis stroke="#64748b" fontSize={12} tickLine={false} axisLine={false} />
+                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                            <Tooltip 
+                                contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
+                                itemStyle={{ fontSize: '13px', fontWeight: 'bold' }}
+                            />
+                            <Legend iconType="circle" />
+                            <Area 
+                                type="monotone" 
+                                dataKey="present" 
+                                stroke="#3b82f6" 
+                                strokeWidth={3} 
+                                fillOpacity={1} 
+                                fill="url(#colorPresent)" 
+                                name="Present"
+                                animationDuration={1500}
+                                dot={{ stroke: '#3b82f6', strokeWidth: 2, r: 4, fill: '#fff' }}
+                                activeDot={{ r: 6 }}
+                            />
+                            <Area 
+                                type="monotone" 
+                                dataKey="absent" 
+                                stroke="#ef4444" 
+                                strokeWidth={3} 
+                                fillOpacity={1} 
+                                fill="url(#colorAbsent)" 
+                                name="Absent"
+                                animationDuration={1500}
+                                dot={{ stroke: '#ef4444', strokeWidth: 2, r: 4, fill: '#fff' }}
+                                activeDot={{ r: 6 }}
+                            />
+                        </AreaChart>
+                    </ResponsiveContainer>
                 </div>
             </div>
 
@@ -133,31 +208,75 @@ const Dashboard = () => {
                     </div>
                 </div>
 
-                {/* Notices Section */}
+                {/* Right Column: Roles Specific View */}
                 <div className="col-lg-5">
+                    {/* Role-Based Assignment View */}
                     <div className="card border-0 shadow-sm rounded-4 overflow-hidden h-100 bg-white">
                         <div className="card-header border-0 bg-transparent p-4 pb-3 d-flex justify-content-between align-items-center border-bottom border-light">
-                            <h6 className="m-0 fw-bold text-dark fs-5">Recent Notices</h6>
-                            <div className="btn-group shadow-none gap-2">
-                                <button className="btn btn-light rounded-circle p-2 d-flex align-items-center justify-content-center transition-all btn-hover-dark" style={{ width: '32px', height: '32px' }}><i className="bi bi-chevron-left small text-dark"></i></button>
-                                <button className="btn btn-light rounded-circle p-2 d-flex align-items-center justify-content-center transition-all btn-hover-dark" style={{ width: '32px', height: '32px' }}><i className="bi bi-chevron-right small text-dark"></i></button>
+                            <h6 className="m-0 fw-bold text-dark fs-5">
+                                {user?.role === 'admin' && 'Live Teacher Activity'}
+                                {user?.role === 'teacher' && 'My Given Work'}
+                                {user?.role === 'student' && 'My Allotted Work'}
+                            </h6>
+                            <div className="d-flex align-items-center gap-2">
+                                {user?.role === 'teacher' && (
+                                    <button className="btn btn-sm btn-dark rounded-pill px-3 py-1 fw-bold" onClick={() => navigate('/assignments')}>+ Allot Work</button>
+                                )}
+                                <span className="badge bg-light text-dark rounded-pill px-3 py-1 small fw-medium">
+                                    {assignments.length} Tasks
+                                </span>
                             </div>
                         </div>
-                        <div className="card-body p-4 pt-2 custom-scrollbar" style={{ maxHeight: '400px', overflowY: 'auto' }}>
+                        <div className="card-body p-4 pt-2 custom-scrollbar" style={{ maxHeight: '600px', overflowY: 'auto' }}>
+                            {assignments.length > 0 ? (
+                                <div className="d-flex flex-column gap-3">
+                                    {assignments.map((task, i) => (
+                                        <div key={task.id || i} className="p-3 rounded-4 bg-light border-0 transition-all hover-shadow">
+                                            <div className="d-flex align-items-center justify-content-between mb-2">
+                                                <span className={`badge ${task.target_audience === 'failure' ? 'bg-danger' : 'bg-dark'} text-white rounded-pill px-2 py-1 small`}>
+                                                    {task.target_audience === 'failure' ? 'Remedial' : (task.target_audience === 'specific' ? 'Private' : 'General')}
+                                                </span>
+                                                <div className="text-muted small fw-medium">Due: {new Date(task.deadline).toLocaleDateString()}</div>
+                                            </div>
+                                            <h6 className="fw-bold text-dark mb-1">{task.title}</h6>
+                                            <div className="d-flex align-items-center gap-2 mb-2">
+                                                <div className="bg-white rounded-pill px-2 py-1 small border text-muted" style={{fontSize:'10px'}}>
+                                                    <i className="bi bi-diagram-2 me-1 text-primary"></i> {task.class_name}
+                                                </div>
+                                                <div className="bg-white rounded-pill px-2 py-1 small border text-muted" style={{fontSize:'10px'}}>
+                                                    <i className="bi bi-book me-1 text-success"></i> {task.course_name}
+                                                </div>
+                                                {user?.role !== 'teacher' && (
+                                                    <div className="text-muted" style={{fontSize:'10px'}}>
+                                                        By: {task.teacher_first} {task.teacher_last}
+                                                    </div>
+                                                )}
+                                            </div>
+                                            <p className="text-muted small mb-0 line-height-lg text-truncate-2">{task.description}</p>
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : (
+                                <div className="text-center p-5 text-muted small fw-medium bg-light rounded-3 mt-2 border border-dashed">
+                                    No active work allotted
+                                </div>
+                            )}
+
+                            {/* Notices Section (Moved below Work) */}
+                            <hr className="my-4" />
+                            <h6 className="mb-3 fw-bold text-dark">Institutional Notices</h6>
                             <ul className="list-group list-group-flush">
                                 {notices && notices.length > 0 ? notices.map((notice, i) => (
                                     <li className="list-group-item border-0 px-0 mb-4 bg-transparent pb-0" key={notice.id || i}>
                                         <div className="d-flex align-items-center justify-content-between mb-2">
-                                            <span className="badge bg-light text-dark border px-3 py-1 rounded-pill small fw-medium"><i className="bi bi-megaphone me-1 text-muted"></i> Notice</span>
+                                            <span className="badge bg-white text-dark border px-3 py-1 rounded-pill small fw-medium">Notice</span>
                                             <div className="text-muted small fw-medium">{new Date(notice.created_at).toLocaleDateString()}</div>
                                         </div>
                                         <h6 className="fw-bold text-dark mb-2">{notice.title}</h6>
-                                        <p className="text-muted small fw-normal mb-0 line-height-lg text-truncate-3">
-                                            {notice.content}
-                                        </p>
+                                        <p className="text-muted small fw-normal mb-0 line-height-lg text-truncate-2">{notice.content}</p>
                                     </li>
                                 )) : (
-                                    <div className="text-center p-5 text-muted small fw-medium bg-light rounded-3 mt-2 border border-dashed">No recent notices available</div>
+                                    <div className="text-center p-3 text-muted small bg-light rounded-3">No recent notices</div>
                                 )}
                             </ul>
                         </div>
@@ -178,6 +297,8 @@ const Dashboard = () => {
         .border-dashed { border-style: dashed !important; border-width: 1.5px !important; border-color: #dee2e6 !important; }
         .btn-hover-dark:hover { background-color: #212529 !important; color: #fff !important; }
         .btn-hover-dark:hover i { color: #fff !important; }
+        .hover-shadow:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.05); transform: translateX(5px); background-color: #fff !important; cursor: pointer; }
+        .text-truncate-2 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
         .custom-scrollbar::-webkit-scrollbar { width: 4px; }
         .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 4px; }

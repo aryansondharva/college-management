@@ -51,14 +51,29 @@ const Layout = ({ children }) => {
 
           <NavLink to="/teachers" className={getLinkClass}>
              <div className="d-flex align-items-center"><i className="bi bi-person-badge me-3 fs-5"></i> Teachers</div>
-             <i className="bi bi-chevron-down small opacity-50"></i>
+          </NavLink>
+
+          <NavLink to="/employees" className={getLinkClass}>
+             <div className="d-flex align-items-center"><i className="bi bi-briefcase me-3 fs-5"></i> Employees</div>
           </NavLink>
 
           {(hasPermission('view marks') || hasPermission('save marks')) && (
-            <NavLink to="/exams" className={getLinkClass}>
-               <div className="d-flex align-items-center"><i className="bi bi-pencil-square me-3 fs-5"></i> Exams / Grades</div>
-               <i className="bi bi-chevron-down small opacity-50"></i>
-            </NavLink>
+            <>
+              <NavLink to="/exams" className={getLinkClass}>
+                 <div className="d-flex align-items-center"><i className="bi bi-pencil-square me-3 fs-5"></i> Exams / Grades</div>
+                 <i className="bi bi-chevron-down small opacity-50"></i>
+              </NavLink>
+              <NavLink to="/admit-cards" className={getLinkClass}>
+                 <div className="d-flex align-items-center ps-3 small opacity-75">
+                   <i className="bi bi-card-heading me-3 fs-6"></i> Admit Cards
+                 </div>
+              </NavLink>
+              <NavLink to="/payslips" className={getLinkClass}>
+                 <div className="d-flex align-items-center ps-3 small opacity-75">
+                   <i className="bi bi-receipt me-3 fs-6"></i> Payslips
+                 </div>
+              </NavLink>
+            </>
           )}
 
           <NavLink to="/notices" className={getLinkClass}>
@@ -75,6 +90,10 @@ const Layout = ({ children }) => {
 
           <NavLink to="/routines" className={getLinkClass}>
              <div className="d-flex align-items-center"><i className="bi bi-calendar3 me-3 fs-5"></i> Routine</div>
+          </NavLink>
+
+          <NavLink to="/assignments" className={getLinkClass}>
+             <div className="d-flex align-items-center"><i className="bi bi-file-earmark-text me-3 fs-5"></i> Assignments</div>
           </NavLink>
 
           <hr className="mx-3 opacity-10 my-3" />

@@ -13,7 +13,13 @@ const ManageAssignments = () => {
     const [selectedClassId, setSelectedClassId] = useState('');
     const [selectedCourseId, setSelectedCourseId] = useState('');
     
-    const [newAssignment, setNewAssignment] = useState({ title: '', description: '', deadline: '' });
+    const [newAssignment, setNewAssignment] = useState({ 
+        title: '', 
+        description: '', 
+        deadline: '', 
+        target_audience: 'everyone', 
+        specific_student_ids: '' // as comma separated string
+    });
     const [showForm, setShowForm] = useState(false);
     const [loading, setLoading] = useState(false);
     const [message, setMessage] = useState({ text: '', type: '' });
@@ -55,58 +61,111 @@ const ManageAssignments = () => {
 
     const handleAddAssignment = async (e) => {
         e.preventDefault();
+        const studentIds = newAssignment.specific_student_ids.split(',').map(id => parseInt(id.trim())).filter(id => !isNaN(id));
         try {
-            await api.post('/assignments', { ...newAssignment, class_id: selectedClassId, course_id: selectedCourseId });
-            setMessage({ text: 'Assignment created.', type: 'success' });
-            setNewAssignment({ title: '', description: '', deadline: '' });
+            await api.post('/assignments', { 
+                ...newAssignment, 
+                class_id: selectedClassId, 
+                course_id: selectedCourseId,
+                specific_student_ids: studentIds
+            });
+            setMessage({ text: 'Assignment published and allotted successfully.', type: 'success' });
+            setNewAssignment({ title: '', description: '', deadline: '', target_audience: 'everyone', specific_student_ids: '' });
             setShowForm(false);
             fetchAssignments();
-        } catch (err) { setMessage({ text: 'Error creating assignment.', type: 'danger' }); }
+        } catch (err) { 
+            const errorMsg = err.response?.data?.message || 'Error publishing assignment.';
+            setMessage({ text: `${errorMsg} ${err.response?.data?.details || ''}`, type: 'danger' }); 
+        }
     };
 
     return (
         <div className="container-fluid py-4">
             <div className="d-flex justify-content-between align-items-center mb-4">
-                <h2 className="fw-bold m-0"><i className="bi bi-file-earmark-text me-2 text-primary"></i>Assignments</h2>
+                <h2 className="fw-bold m-0"><i className="bi bi-file-earmark-text me-2 text-primary"></i>Task Allocation</h2>
                 {hasPermission('create assignments') && (
                     <button className="btn btn-primary fw-bold" onClick={() => setShowForm(!showForm)}>
-                        {showForm ? 'Cancel' : 'Add New Task'}
+                        {showForm ? 'Cancel Operation' : 'Direct Allot Work'}
                     </button>
                 )}
             </div>
 
-            <div className="card shadow-sm border-0 rounded-4 mb-4">
+            {message.text && <div className={`alert alert-${message.type} border-0 rounded-3 shadow-sm mb-4`}>{message.text}</div>}
+
+            <div className="card shadow-sm border-0 rounded-4 mb-4 bg-white">
                 <div className="card-body p-4">
                     <form className="row g-3" onSubmit={fetchAssignments}>
                          <div className="col-md-4">
-                            <label className="form-label small fw-bold">Class</label>
-                            <select className="form-select bg-light border-0" value={selectedClassId} onChange={(e) => handleClassChange(e.target.value)}>
-                                <option value="">Select Class</option>
+                            <label className="form-label small fw-bold">Class / Semester</label>
+                            <select className="form-select bg-light border-0 py-2" value={selectedClassId} onChange={(e) => handleClassChange(e.target.value)} required>
+                                <option value="">Select Target Class</option>
                                 {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                             </select>
                          </div>
                          <div className="col-md-4">
-                            <label className="form-label small fw-bold">Subject (Optional)</label>
-                            <select className="form-select bg-light border-0" value={selectedCourseId} onChange={(e) => setSelectedCourseId(e.target.value)}>
-                                <option value="">All Subjects</option>
+                            <label className="form-label small fw-bold">Academic Subject</label>
+                            <select className="form-select bg-light border-0 py-2" value={selectedCourseId} onChange={(e) => setSelectedCourseId(e.target.value)} required>
+                                <option value="">Select Subject</option>
                                 {courses.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                             </select>
                          </div>
                          <div className="col-md-4 d-flex align-items-end">
-                            <button type="submit" className="btn btn-dark w-100 py-2">Load Tasks</button>
+                            <button type="submit" className="btn btn-dark w-100 py-2 fw-bold">Fetch Allotted Work</button>
                          </div>
                     </form>
                 </div>
             </div>
 
             {showForm && (
-                 <div className="card shadow-sm border-0 rounded-4 mb-4">
-                    <div className="card-body p-4">
+                 <div className="card shadow-sm border-0 rounded-4 mb-4 bg-white overflow-hidden border-top border-primary border-4">
+                    <div className="card-header bg-white border-0 pt-4 px-4 pb-0">
+                        <h5 className="fw-bold mb-0">Publish & Allot New Task</h5>
+                        <div className="d-flex gap-2 mt-2">
+                            <span className="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 rounded-pill px-3 py-1 small fw-bold">
+                                <i className="bi bi-diagram-2 me-1"></i> 
+                                {classes.find(c => c.id == selectedClassId)?.name || 'N/A'}
+                            </span>
+                            <span className="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 rounded-pill px-3 py-1 small fw-bold">
+                                <i className="bi bi-book me-1"></i> 
+                                {courses.find(c => c.id == selectedCourseId)?.name || 'All Subjects'}
+                            </span>
+                        </div>
+                    </div>
+                    <div className="card-body p-4 pt-3">
                         <form onSubmit={handleAddAssignment}>
-                            <div className="mb-3"><label className="form-label small fw-bold">Title</label><input type="text" className="form-control" value={newAssignment.title} onChange={(e) => setNewAssignment(p=>({...p, title:e.target.value}))} required /></div>
-                            <div className="mb-3"><label className="form-label small fw-bold">Deadline</label><input type="date" className="form-control" value={newAssignment.deadline} onChange={(e) => setNewAssignment(p=>({...p, deadline:e.target.value}))} required /></div>
-                            <div className="mb-3"><label className="form-label small fw-bold">Instructions</label><textarea className="form-control" rows="3" value={newAssignment.description} onChange={(e) => setNewAssignment(p=>({...p, description:e.target.value}))} required /></div>
-                            <button type="submit" className="btn btn-primary w-100 fw-bold">Publish Assignment</button>
+                            <div className="row g-3">
+                                <div className="col-md-8">
+                                    <label className="form-label small fw-bold">Task Title</label>
+                                    <input type="text" className="form-control bg-light border-0 py-2" value={newAssignment.title} onChange={(e) => setNewAssignment(p=>({...p, title:e.target.value}))} placeholder="e.g., Mid-Term Project" required />
+                                </div>
+                                <div className="col-md-4">
+                                    <label className="form-label small fw-bold">Submission Deadline</label>
+                                    <input type="date" className="form-control bg-light border-0 py-2" value={newAssignment.deadline} onChange={(e) => setNewAssignment(p=>({...p, deadline:e.target.value}))} required />
+                                </div>
+                                <div className="col-md-6">
+                                    <label className="form-label small fw-bold">Target Audience</label>
+                                    <select className="form-select bg-light border-0 py-2" value={newAssignment.target_audience} onChange={(e) => setNewAssignment(p=>({...p, target_audience:e.target.value}))}>
+                                        <option value="everyone">Everyone in Class</option>
+                                        <option value="failure">Failure / Remedial Students</option>
+                                        <option value="specific">Specific Person(s)</option>
+                                    </select>
+                                </div>
+                                {newAssignment.target_audience === 'specific' && (
+                                    <div className="col-md-6">
+                                        <label className="form-label small fw-bold">Student IDs (Comma separated)</label>
+                                        <input type="text" className="form-control bg-light border-0 py-2" value={newAssignment.specific_student_ids} onChange={(e) => setNewAssignment(p=>({...p, specific_student_ids:e.target.value}))} placeholder="e.g. 101, 105, 210" required />
+                                    </div>
+                                )}
+                                <div className="col-12">
+                                    <label className="form-label small fw-bold">Instructions & Details</label>
+                                    <textarea className="form-control bg-light border-0 py-2" rows="4" value={newAssignment.description} onChange={(e) => setNewAssignment(p=>({...p, description:e.target.value}))} placeholder="Provide clear steps for the task..." required />
+                                </div>
+                                <div className="col-12 pt-2">
+                                    <button type="submit" className="btn btn-primary px-5 py-2 fw-bold rounded-pill shadow-sm">
+                                        <i className="bi bi-send-fill me-2"></i> Publish & Allot Work
+                                    </button>
+                                </div>
+                            </div>
                         </form>
                     </div>
                  </div>
