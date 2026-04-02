@@ -19,6 +19,19 @@ router.get('/teachers', authenticate, can('view users'), async (req, res) => {
   }
 });
 
+// GET /api/users/employees
+router.get('/employees', authenticate, can('view users'), async (req, res) => {
+  try {
+    const result = await db.query(
+      `SELECT id, first_name, last_name, email, gender, phone, photo, role, nationality, city, created_at, enrollment_no
+       FROM users WHERE role != 'student' ORDER BY role, first_name`
+    );
+    res.json({ employees: result.rows });
+  } catch (err) {
+    res.status(500).json({ message: 'Server error.', error: err.message });
+  }
+});
+
 // GET /api/users/teacher/:id
 router.get('/teacher/:id', authenticate, async (req, res) => {
   try {
@@ -77,9 +90,41 @@ router.put('/teachers/:id', authenticate, can('edit users'), async (req, res) =>
   }
 });
 
-// GET /api/users/students
-router.get('/students', authenticate, can('view users'), async (req, res) => {
+// POST /api/users/employees
+router.post('/employees', authenticate, can('create users'), async (req, res) => {
   try {
+    const { first_name, last_name, email, password, gender, nationality, phone, address, role, enrollment_no } = req.body;
+    const hashed = await bcrypt.hash(password || 'staff123', 10);
+    const finalRole = role || 'staff';
+
+    const result = await db.query(
+      `INSERT INTO users (first_name, last_name, email, password, gender, nationality, phone, address, role, enrollment_no)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING id, first_name, last_name, email, role`,
+      [first_name, last_name, email, hashed, gender, nationality||'', phone||'', address||'', finalRole, enrollment_no || null]
+    );
+    res.status(201).json({ message: 'Employee onboarding successful.', employee: result.rows[0] });
+  } catch (err) {
+    if (err.code === '23505') return res.status(400).json({ message: 'Email or Enrollment No already exists.' });
+    res.status(500).json({ message: 'Server error.', error: err.message });
+  }
+});
+
+// DELETE /api/users/:id
+router.delete('/:id', authenticate, can('delete users'), async (req, res) => {
+  try {
+    await db.query('DELETE FROM users WHERE id = $1', [req.params.id]);
+    res.json({ message: 'User deleted successfully.' });
+  } catch (err) {
+    res.status(500).json({ message: 'Server error.', error: err.message });
+  }
+});
+
+// GET /api/users/students
+router.get('/students', authenticate, async (req, res) => {
+  try {
+    if (req.user.role !== 'admin' && req.user.role !== 'teacher') {
+        return res.status(403).json({ message: 'Forbidden.' });
+    }
     const { session_id, class_id, section_id } = req.query;
     let query = `
       SELECT u.id, u.first_name, u.last_name, u.email, u.gender, u.photo, u.role, u.enrollment_no,

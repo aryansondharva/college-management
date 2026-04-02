@@ -9,7 +9,9 @@ const router = express.Router();
 router.get('/', authenticate, async (req, res) => {
   try {
     const { start, end, session_id } = req.query;
-    let query = 'SELECT id, title, start_date as start, end_date as end FROM events WHERE session_id = $1';
+    let query = `SELECT id, title, start_date as start, end_date as end, 
+                 COALESCE(type, 'other') as type
+                 FROM events WHERE session_id = $1`;
     const params = [session_id];
 
     if (start && end) {
@@ -17,6 +19,7 @@ router.get('/', authenticate, async (req, res) => {
       query += ` AND start_date >= $2 AND end_date <= $3`;
     }
 
+    query += ' ORDER BY start_date ASC';
     const result = await db.query(query, params);
     res.json(result.rows);
   } catch (err) {
@@ -24,22 +27,27 @@ router.get('/', authenticate, async (req, res) => {
   }
 });
 
-// POST /api/events
+// POST /api/events  (handles create / edit / delete via 'type' body field)
 router.post('/', authenticate, can('manage events'), async (req, res) => {
   try {
-    const { title, start, end, session_id, type, id } = req.body;
+    const { title, start, end, session_id, type, id, description } = req.body;
 
     if (type === 'create') {
+      const eventType = req.body.eventType || 'other';
       const result = await db.query(
-        'INSERT INTO events (title, start_date, end_date, session_id) VALUES ($1, $2, $3, $4) RETURNING id, title, start_date as start, end_date as end',
-        [title, start, end, session_id]
+        `INSERT INTO events (title, start_date, end_date, session_id, type)
+         VALUES ($1, $2, $3, $4, $5)
+         RETURNING id, title, start_date as start, end_date as end, type`,
+        [title, start, end, session_id, eventType]
       );
       return res.status(201).json(result.rows[0]);
     }
 
     if (type === 'edit') {
       const result = await db.query(
-        'UPDATE events SET title = $1, start_date = $2, end_date = $3 WHERE id = $4 RETURNING id, title, start_date as start, end_date as end',
+        `UPDATE events SET title = $1, start_date = $2, end_date = $3
+         WHERE id = $4
+         RETURNING id, title, start_date as start, end_date as end, type`,
         [title, start, end, id]
       );
       return res.json(result.rows[0]);

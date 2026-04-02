@@ -29,19 +29,25 @@ const Layout = ({ children }) => {
              <div className="d-flex align-items-center"><i className="bi bi-grid-fill me-3 fs-5"></i> Dashboard</div>
           </NavLink>
           
-          <NavLink to="/classes" className={getLinkClass}>
-             <div className="d-flex align-items-center"><i className="bi bi-diagram-3 me-3 fs-5"></i> Classes</div>
-             <span className="badge bg-light text-dark border small fw-bold px-2 py-1">3</span>
-          </NavLink>
+          {(user?.role === 'admin') && (
+            <NavLink to="/classes" className={getLinkClass}>
+               <div className="d-flex align-items-center"><i className="bi bi-diagram-3 me-3 fs-5"></i> Classes</div>
+               <span className="badge bg-light text-dark border small fw-bold px-2 py-1">3</span>
+            </NavLink>
+          )}
 
-          <NavLink to="/students" className={getLinkClass}>
-             <div className="d-flex align-items-center"><i className="bi bi-people me-3 fs-5"></i> Students</div>
-             <i className="bi bi-chevron-down small opacity-50"></i>
-          </NavLink>
+          {(user?.role === 'admin') && (
+            <NavLink to="/students" className={getLinkClass}>
+               <div className="d-flex align-items-center"><i className="bi bi-people me-3 fs-5"></i> Students</div>
+               <i className="bi bi-chevron-down small opacity-50"></i>
+            </NavLink>
+          )}
 
-          <NavLink to="/attendance" className={getLinkClass}>
-             <div className="d-flex align-items-center"><i className="bi bi-calendar-check me-3 fs-5"></i> Attendance</div>
-          </NavLink>
+          {(user?.role === 'admin' || user?.role === 'teacher') && (
+            <NavLink to="/attendance" className={getLinkClass}>
+               <div className="d-flex align-items-center"><i className="bi bi-calendar-check me-3 fs-5"></i> Attendance</div>
+            </NavLink>
+          )}
 
           <NavLink to="/attendance/report" className={getLinkClass}>
              <div className="d-flex align-items-center ps-3 small opacity-75">
@@ -49,16 +55,35 @@ const Layout = ({ children }) => {
              </div>
           </NavLink>
 
-          <NavLink to="/teachers" className={getLinkClass}>
-             <div className="d-flex align-items-center"><i className="bi bi-person-badge me-3 fs-5"></i> Teachers</div>
-             <i className="bi bi-chevron-down small opacity-50"></i>
-          </NavLink>
+          {(user?.role === 'admin') && (
+            <>
+              <NavLink to="/teachers" className={getLinkClass}>
+                 <div className="d-flex align-items-center"><i className="bi bi-person-badge me-3 fs-5"></i> Teachers</div>
+              </NavLink>
+
+              <NavLink to="/employees" className={getLinkClass}>
+                 <div className="d-flex align-items-center"><i className="bi bi-briefcase me-3 fs-5"></i> Employees</div>
+              </NavLink>
+            </>
+          )}
 
           {(hasPermission('view marks') || hasPermission('save marks')) && (
-            <NavLink to="/exams" className={getLinkClass}>
-               <div className="d-flex align-items-center"><i className="bi bi-pencil-square me-3 fs-5"></i> Exams / Grades</div>
-               <i className="bi bi-chevron-down small opacity-50"></i>
-            </NavLink>
+            <>
+              <NavLink to="/exams" className={getLinkClass}>
+                 <div className="d-flex align-items-center"><i className="bi bi-pencil-square me-3 fs-5"></i> Exams / Grades</div>
+                 <i className="bi bi-chevron-down small opacity-50"></i>
+              </NavLink>
+              <NavLink to="/admit-cards" className={getLinkClass}>
+                 <div className="d-flex align-items-center ps-3 small opacity-75">
+                   <i className="bi bi-card-heading me-3 fs-6"></i> Admit Cards
+                 </div>
+              </NavLink>
+              <NavLink to="/payslips" className={getLinkClass}>
+                 <div className="d-flex align-items-center ps-3 small opacity-75">
+                   <i className="bi bi-receipt me-3 fs-6"></i> Payslips
+                 </div>
+              </NavLink>
+            </>
           )}
 
           <NavLink to="/notices" className={getLinkClass}>
@@ -77,11 +102,17 @@ const Layout = ({ children }) => {
              <div className="d-flex align-items-center"><i className="bi bi-calendar3 me-3 fs-5"></i> Routine</div>
           </NavLink>
 
+          <NavLink to="/assignments" className={getLinkClass}>
+             <div className="d-flex align-items-center"><i className="bi bi-file-earmark-text me-3 fs-5"></i> Assignments</div>
+          </NavLink>
+
           <hr className="mx-3 opacity-10 my-3" />
 
-          <NavLink to="/settings" className={getLinkClass}>
-             <div className="d-flex align-items-center"><i className="bi bi-tools me-3 fs-5"></i> Academic</div>
-          </NavLink>
+          {(user?.role === 'admin') && (
+            <NavLink to="/settings" className={getLinkClass}>
+               <div className="d-flex align-items-center"><i className="bi bi-tools me-3 fs-5"></i> Academic</div>
+            </NavLink>
+          )}
 
           {hasPermission('promote students') && (
             <NavLink to="/promotions" className={getLinkClass}>
@@ -101,8 +132,8 @@ const Layout = ({ children }) => {
            <div className="d-flex align-items-center">
               <div className="dropdown">
                 <button className="btn dropdown-toggle border-0 d-flex align-items-center p-0" id="user" data-bs-toggle="dropdown">
-                   <span className="badge bg-light text-dark me-2 small fw-bold px-2 py-1">Admin</span>
-                   <span className="fw-bold me-2 small text-dark d-none d-sm-inline">Hasib Mahmud</span>
+                   <span className="badge bg-light text-dark me-2 small fw-bold px-2 py-1 text-capitalize">{user?.role}</span>
+                   <span className="fw-bold me-2 small text-dark d-none d-sm-inline">{user?.first_name} {user?.last_name}</span>
                    <i className="bi bi-chevron-down small text-muted"></i>
                 </button>
                 <ul className="dropdown-menu dropdown-menu-end shadow border-0 mt-3 rounded-4">

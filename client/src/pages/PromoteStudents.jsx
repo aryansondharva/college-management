@@ -8,6 +8,7 @@ const PromoteStudents = () => {
     const [prevClasses, setPrevClasses] = useState([]);
     const [prevSections, setPrevSections] = useState([]);
     const [students, setStudents] = useState([]);
+    const [selectedStudents, setSelectedStudents] = useState([]);
     const [targetClasses, setTargetClasses] = useState([]);
     const [targetSections, setTargetSections] = useState([]);
     const [selectedSession, setSelectedSession] = useState('');
@@ -61,6 +62,7 @@ const PromoteStudents = () => {
         try {
             const res = await api.get(`/users/students?session_id=${prevSessionId}&class_id=${selectedClass}&section_id=${selectedSection}`);
             setStudents(res.data.students);
+            setSelectedStudents(res.data.students.map(s => s.id));
             
             // Also fetch target classes/sections
             const targetRes = await api.get(`/classes?session_id=${selectedSession}`);
@@ -75,17 +77,37 @@ const PromoteStudents = () => {
     const fetchTargetSections = async (classId) => {
         if (!classId) return;
         try {
-            const res = await axios.get(`http://localhost:5000/api/sections?class_id=${classId}`);
+            const res = await api.get(`/sections?class_id=${classId}`);
             setTargetSections(res.data.sections);
         } catch (err) {
             setError('Failed to fetch target sections.');
         }
     };
 
+    const handleToggleAll = (e) => {
+        if (e.target.checked) {
+            setSelectedStudents(students.map(s => s.id));
+        } else {
+            setSelectedStudents([]);
+        }
+    };
+
+    const handleToggleStudent = (id) => {
+        if (selectedStudents.includes(id)) {
+            setSelectedStudents(selectedStudents.filter(sid => sid !== id));
+        } else {
+            setSelectedStudents([...selectedStudents, id]);
+        }
+    };
+
     const handlePromote = async (e) => {
         e.preventDefault();
+        if (selectedStudents.length === 0) {
+            setError('Please select at least one student to promote.');
+            return;
+        }
         try {
-            const promotionData = students.map(s => ({
+            const promotionData = students.filter(s => selectedStudents.includes(s.id)).map(s => ({
                 student_id: s.id,
                 student_id_card_number: s.enrollment_no || '', 
                 target_class_id: targetClass,
@@ -100,6 +122,8 @@ const PromoteStudents = () => {
             });
             alert('Students promoted successfully!');
             setStudents([]);
+            setSelectedStudents([]);
+            setError('');
         } catch (err) {
             setError('Failed to promote students.');
         }
@@ -170,6 +194,7 @@ const PromoteStudents = () => {
                             <table className="table table-hover mb-0">
                                 <thead className="bg-light">
                                     <tr>
+                                        <th style={{width: '50px'}}><input type="checkbox" className="form-check-input" checked={students.length > 0 && selectedStudents.length === students.length} onChange={handleToggleAll} /></th>
                                         <th>Name</th>
                                         <th>Enrollment No</th>
                                         <th>Status</th>
@@ -178,9 +203,14 @@ const PromoteStudents = () => {
                                 <tbody>
                                     {students.map(s => (
                                         <tr key={s.id}>
+                                            <td><input type="checkbox" className="form-check-input" checked={selectedStudents.includes(s.id)} onChange={() => handleToggleStudent(s.id)} /></td>
                                             <td>{s.first_name} {s.last_name}</td>
                                             <td>{s.enrollment_no || '--'}</td>
-                                            <td><span className="badge bg-info">Ready to Promote</span></td>
+                                            <td>
+                                                {selectedStudents.includes(s.id) 
+                                                    ? <span className="badge bg-info">Ready to Promote</span> 
+                                                    : <span className="badge bg-secondary">Stay in Current</span>}
+                                            </td>
                                         </tr>
                                     ))}
                                 </tbody>

@@ -7,8 +7,11 @@ const router = express.Router();
 
 // GET /api/attendance
 // Params: session_id, class_id, section_id, date, course_id (optional)
-router.get('/', authenticate, can('view attendances'), async (req, res) => {
+router.get('/', authenticate, async (req, res) => {
   try {
+    if (req.user.role !== 'admin' && req.user.role !== 'teacher') {
+        return res.status(403).json({ message: 'Forbidden: Insufficient permissions.' });
+    }
     const { session_id, class_id, section_id, date, course_id } = req.query;
     
     let query = `
@@ -32,8 +35,11 @@ router.get('/', authenticate, can('view attendances'), async (req, res) => {
 });
 
 // POST /api/attendance
-router.post('/', authenticate, can('take attendances'), async (req, res) => {
+router.post('/', authenticate, async (req, res) => {
   try {
+    if (req.user.role !== 'admin' && req.user.role !== 'teacher') {
+        return res.status(403).json({ message: 'Forbidden: Only admins and teachers can take attendance.' });
+    }
     const { session_id, class_id, section_id, date, course_id, attendance_data } = req.body;
     // attendance_data: [{student_id: 1, present: true}, ...]
 
@@ -239,6 +245,32 @@ router.get('/subject-daily-report', authenticate, can('view attendances'), async
         });
 
         res.json({ report: Object.values(report) });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: 'Server error.', error: err.message });
+    }
+});
+
+// GET /api/attendance/today-summary
+router.get('/today-summary', authenticate, async (req, res) => {
+    try {
+        const result = await db.query(`
+            SELECT 
+                sc.name as class_name,
+                s.name as section_name,
+                COUNT(a.id) FILTER (WHERE a.present = true) as present_count,
+                COUNT(a.id) FILTER (WHERE a.present = false) as absent_count
+            FROM school_classes sc
+            JOIN sections s ON s.class_id = sc.id
+            JOIN school_sessions ss ON ss.id = sc.session_id
+            LEFT JOIN attendances a ON a.class_id = sc.id AND a.section_id = s.id AND a.attendance_date = CURRENT_DATE
+            WHERE ss.current = true
+              AND sc.name IN ('Sem-2', 'Sem-4', 'Sem-6', 'Sem-8')
+            GROUP BY sc.id, sc.name, s.id, s.name, sc.numeric_name
+            ORDER BY sc.numeric_name, s.name
+        `);
+        
+        res.json({ summary: result.rows });
     } catch (err) {
         console.error(err);
         res.status(500).json({ message: 'Server error.', error: err.message });
