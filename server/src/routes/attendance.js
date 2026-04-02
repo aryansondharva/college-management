@@ -7,8 +7,11 @@ const router = express.Router();
 
 // GET /api/attendance
 // Params: session_id, class_id, section_id, date, course_id (optional)
-router.get('/', authenticate, can('view attendances'), async (req, res) => {
+router.get('/', authenticate, async (req, res) => {
   try {
+    if (req.user.role !== 'admin' && req.user.role !== 'teacher') {
+        return res.status(403).json({ message: 'Forbidden: Insufficient permissions.' });
+    }
     const { session_id, class_id, section_id, date, course_id } = req.query;
     
     let query = `
@@ -32,8 +35,11 @@ router.get('/', authenticate, can('view attendances'), async (req, res) => {
 });
 
 // POST /api/attendance
-router.post('/', authenticate, can('take attendances'), async (req, res) => {
+router.post('/', authenticate, async (req, res) => {
   try {
+    if (req.user.role !== 'admin' && req.user.role !== 'teacher') {
+        return res.status(403).json({ message: 'Forbidden: Only admins and teachers can take attendance.' });
+    }
     const { session_id, class_id, section_id, date, course_id, attendance_data } = req.body;
     // attendance_data: [{student_id: 1, present: true}, ...]
 

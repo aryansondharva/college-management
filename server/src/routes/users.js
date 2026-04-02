@@ -120,8 +120,11 @@ router.delete('/:id', authenticate, can('delete users'), async (req, res) => {
 });
 
 // GET /api/users/students
-router.get('/students', authenticate, can('view users'), async (req, res) => {
+router.get('/students', authenticate, async (req, res) => {
   try {
+    if (req.user.role !== 'admin' && req.user.role !== 'teacher') {
+        return res.status(403).json({ message: 'Forbidden.' });
+    }
     const { session_id, class_id, section_id } = req.query;
     let query = `
       SELECT u.id, u.first_name, u.last_name, u.email, u.gender, u.photo, u.role, u.enrollment_no,
