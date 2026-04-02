@@ -70,6 +70,16 @@ router.post('/', authenticate, async (req, res) => {
       });
       await Promise.all(queries);
     }
+    const io = req.app.get('io');
+    if (io) {
+        // Broadcast to specific student IDs that were updated
+        const studentIds = req.body.attendance_data.map(i => i.student_id);
+        studentIds.forEach(sid => {
+            console.log(`Broadcasting attendance update for student: ${sid}`);
+            io.emit(`attendance-updated-${sid}`, { student_id: sid });
+        });
+        io.emit('attendance-dashboard-updated'); // General refresh for anyone listening
+    }
     res.json({ message: 'Attendance recorded successfully.' });
   } catch (err) {
     res.status(500).json({ message: 'Server error.', error: err.message });
@@ -273,6 +283,27 @@ router.get('/today-summary', authenticate, async (req, res) => {
         res.json({ summary: result.rows });
     } catch (err) {
         console.error(err);
+        res.status(500).json({ message: 'Server error.', error: err.message });
+    }
+});
+
+// GET /api/attendance/student-summary
+router.get('/student-summary', authenticate, async (req, res) => {
+    try {
+        const student_id = req.user.id;
+        const result = await db.query(`
+            SELECT 
+                COUNT(*) FILTER (WHERE present = true) as attended,
+                COUNT(*) as total
+            FROM attendances
+            WHERE student_id = $1 AND course_id IS NOT NULL
+        `, [student_id]);
+        
+        const summary = result.rows[0];
+        const percentage = summary.total > 0 ? Math.round((summary.attended / summary.total) * 100) : 0;
+
+        res.json({ attended: summary.attended, total: summary.total, percentage });
+    } catch (err) {
         res.status(500).json({ message: 'Server error.', error: err.message });
     }
 });

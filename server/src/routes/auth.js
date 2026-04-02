@@ -15,19 +15,25 @@ router.post('/login', async (req, res) => {
       return res.status(400).json({ message: 'Email/ID and password are required.' });
     }
 
+    console.log('Login attempt for identity:', identity);
+    
     const result = await db.query(
-      'SELECT * FROM users WHERE email = $1 OR enrollment_no = $1',
+      'SELECT * FROM users WHERE LOWER(email) = LOWER($1) OR enrollment_no = $1',
       [identity]
     );
+    console.log('User found in database:', result.rows.length > 0);
 
     if (result.rows.length === 0) {
+      console.log('Failed login attempt: Identity not found');
       return res.status(401).json({ message: 'Invalid credentials.' });
     }
 
     const user = result.rows[0];
     const isMatch = await bcrypt.compare(password, user.password);
+    console.log('Password comparison result:', isMatch);
 
     if (!isMatch) {
+      console.log('Failed login attempt: Password mismatch');
       return res.status(401).json({ message: 'Invalid credentials.' });
     }
 
