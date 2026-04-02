@@ -109,36 +109,49 @@ router.get('/report', authenticate, can('view attendances'), async (req, res) =>
             return res.status(400).json({ message: 'Missing required filters.' });
         }
 
-        const result = await db.query(`
+        // Get all students first, then get their attendance data
+        const allStudents = await db.query(`
+            SELECT u.id as student_id, u.first_name, u.last_name, u.enrollment_no
+            FROM users u
+            LEFT JOIN student_academic_infos sai ON sai.student_id = u.id
+            WHERE u.role = 'student' AND sai.session_id = $1 AND sai.class_id = $2 AND sai.section_id = $3
+            ORDER BY CASE WHEN u.enrollment_no IS NULL OR u.enrollment_no = '' THEN 1 ELSE 0 END, u.enrollment_no ASC, u.first_name ASC
+        `, [session_id, class_id, section_id]);
+
+        // Get attendance data for these students
+        const attendanceData = await db.query(`
             SELECT 
                 a.student_id, 
-                u.first_name, u.last_name, u.enrollment_no,
                 a.course_id, 
                 COUNT(*) FILTER (WHERE a.present = true) as attended,
                 COUNT(*) as total
             FROM attendances a
-            JOIN users u ON u.id = a.student_id
             WHERE a.session_id = $1 AND a.class_id = $2 AND a.section_id = $3
               AND EXTRACT(MONTH FROM a.attendance_date) = $4
               AND EXTRACT(YEAR FROM a.attendance_date) = $5
-            GROUP BY a.student_id, u.first_name, u.last_name, u.enrollment_no, a.course_id
-        `, [session_id, class_id, section_id, month, year]);
+              AND a.student_id = ANY($6)
+            GROUP BY a.student_id, a.course_id
+        `, [session_id, class_id, section_id, month, year, allStudents.rows.map(s => s.student_id)]);
 
-        // Transform data into: { student_id: { subjects: { course_id: { attended, total } }, info: { name, ... } } }
+        // Transform into expected format: { student_id: { subjects: { course_id: { attended, total } }, info: { name, ... } }
         const report = {};
-        result.rows.forEach(row => {
-            if (!report[row.student_id]) {
-                report[row.student_id] = {
-                    id: row.student_id,
-                    name: `${row.first_name} ${row.last_name}`,
-                    enrollment_no: row.enrollment_no,
-                    subjects: {}
+        allStudents.rows.forEach(student => {
+            report[student.student_id] = {
+                id: student.student_id,
+                name: `${student.first_name} ${student.last_name}`,
+                enrollment_no: student.enrollment_no,
+                subjects: {}
+            };
+        });
+
+        // Add attendance data
+        attendanceData.rows.forEach(row => {
+            if (report[row.student_id]) {
+                report[row.student_id].subjects[row.course_id] = {
+                    attended: parseInt(row.attended),
+                    total: parseInt(row.total)
                 };
             }
-            report[row.student_id].subjects[row.course_id] = {
-                attended: parseInt(row.attended),
-                total: parseInt(row.total)
-            };
         });
 
         res.json({ report: Object.values(report) });
@@ -157,47 +170,93 @@ router.get('/daily-report', authenticate, can('view attendances'), async (req, r
             return res.status(400).json({ message: 'Missing required filters.' });
         }
 
-        let query = `
+        // Get all students first, then get their attendance data
+        const allStudents = await db.query(`
+            SELECT u.id as student_id, u.first_name, u.last_name, u.enrollment_no
+            FROM users u
+            LEFT JOIN student_academic_infos sai ON sai.student_id = u.id
+            WHERE u.role = 'student' AND sai.session_id = $1 AND sai.class_id = $2
+        `, [session_id, class_id]);
+
+        if (section_id) {
+            allStudents.rows = allStudents.rows.filter(s => {
+                // This is a temporary fix - we need to get section info properly
+                return true; // Will be filtered in attendance query
+            });
+        }
+
+        // Get attendance data for these students
+        let attendanceQuery = `
             SELECT 
                 a.student_id, 
-                u.first_name, u.last_name, u.enrollment_no,
                 EXTRACT(DAY FROM a.attendance_date) as day,
                 BOOL_OR(a.present) as is_present
             FROM attendances a
-            JOIN users u ON u.id = a.student_id
             WHERE a.session_id = $1 AND a.class_id = $2
         `;
-        const params = [session_id, class_id];
+        let attendanceParams = [session_id, class_id];
 
         if (section_id) {
-            params.push(section_id);
-            query += ` AND a.section_id = $${params.length}`;
+            attendanceParams.push(section_id);
+            attendanceQuery += ` AND a.section_id = $${attendanceParams.length}`;
         }
 
-        params.push(month);
-        query += ` AND EXTRACT(MONTH FROM a.attendance_date) = $${params.length}`;
+        attendanceParams.push(month);
+        attendanceQuery += ` AND EXTRACT(MONTH FROM a.attendance_date) = $${attendanceParams.length}`;
 
-        params.push(year);
-        query += ` AND EXTRACT(YEAR FROM a.attendance_date) = $${params.length}`;
+        attendanceParams.push(year);
+        attendanceQuery += ` AND EXTRACT(YEAR FROM a.attendance_date) = $${attendanceParams.length}`;
 
-        query += ` GROUP BY a.student_id, u.first_name, u.last_name, u.enrollment_no, EXTRACT(DAY FROM a.attendance_date)`;
+        attendanceParams.push(allStudents.rows.map(s => s.student_id));
+        attendanceQuery += ` AND a.student_id = ANY($${attendanceParams.length})`;
 
-        const result = await db.query(query, params);
+        attendanceQuery += ` GROUP BY a.student_id, EXTRACT(DAY FROM a.attendance_date)`;
+        attendanceQuery += ` ORDER BY a.student_id`;
 
+        const attendanceResult = await db.query(attendanceQuery, attendanceParams);
+
+        // Transform into expected format
         const report = {};
-        result.rows.forEach(row => {
-            if (!report[row.student_id]) {
-                report[row.student_id] = {
-                    id: row.student_id,
-                    name: `${row.first_name} ${row.last_name}`,
-                    enrollment_no: row.enrollment_no,
-                    days: {}
-                };
-            }
-            report[row.student_id].days[parseInt(row.day)] = row.is_present;
+        allStudents.rows.forEach(student => {
+            report[student.student_id] = {
+                id: student.student_id,
+                name: `${student.first_name} ${student.last_name}`,
+                enrollment_no: student.enrollment_no,
+                days: {}
+            };
         });
 
-        res.json({ report: Object.values(report) });
+        // Add attendance data
+        attendanceResult.rows.forEach(row => {
+            if (report[row.student_id]) {
+                report[row.student_id].days[parseInt(row.day)] = row.is_present;
+            }
+        });
+
+        // Filter to only show students in the requested section
+        const sectionStudents = await db.query(`
+            SELECT sai.student_id
+            FROM student_academic_infos sai
+            WHERE sai.session_id = $1 AND sai.class_id = $2 AND sai.section_id = $3
+        `, [session_id, class_id, section_id]);
+
+        const sectionStudentIds = new Set(sectionStudents.rows.map(s => s.student_id));
+        const filteredReport = Object.values(report).filter(student => 
+            sectionStudentIds.has(student.id)
+        );
+
+        // Sort by enrollment number
+        filteredReport.sort((a, b) => {
+            const aEnroll = a.enrollment_no || '';
+            const bEnroll = b.enrollment_no || '';
+            
+            if (aEnroll === '' && bEnroll !== '') return 1;
+            if (aEnroll !== '' && bEnroll === '') return -1;
+            
+            return aEnroll.localeCompare(bEnroll, undefined, { numeric: true });
+        });
+
+        res.json({ report: filteredReport });
     } catch (err) {
         console.error(err);
         res.status(500).json({ message: 'Server error.', error: err.message });
@@ -212,49 +271,89 @@ router.get('/subject-daily-report', authenticate, can('view attendances'), async
             return res.status(400).json({ message: 'Missing required filters.' });
         }
 
-        let query = `
+        // Get all students first, then get their attendance data
+        const allStudents = await db.query(`
+            SELECT u.id as student_id, u.first_name, u.last_name, u.enrollment_no
+            FROM users u
+            LEFT JOIN student_academic_infos sai ON sai.student_id = u.id
+            WHERE u.role = 'student' AND sai.session_id = $1 AND sai.class_id = $2
+        `, [session_id, class_id]);
+
+        // Get attendance data for these students
+        let attendanceQuery = `
             SELECT 
                 a.student_id, 
-                u.first_name, u.last_name, u.enrollment_no,
                 a.course_id,
                 EXTRACT(DAY FROM a.attendance_date) as day,
                 a.present
             FROM attendances a
-            JOIN users u ON u.id = a.student_id
             WHERE a.session_id = $1 AND a.class_id = $2
         `;
-        const params = [session_id, class_id];
+        let attendanceParams = [session_id, class_id];
 
         if (section_id) {
-            params.push(section_id);
-            query += ` AND a.section_id = $${params.length}`;
+            attendanceParams.push(section_id);
+            attendanceQuery += ` AND a.section_id = $${attendanceParams.length}`;
         }
 
-        params.push(month);
-        query += ` AND EXTRACT(MONTH FROM a.attendance_date) = $${params.length}`;
+        attendanceParams.push(month);
+        attendanceQuery += ` AND EXTRACT(MONTH FROM a.attendance_date) = $${attendanceParams.length}`;
 
-        params.push(year);
-        query += ` AND EXTRACT(YEAR FROM a.attendance_date) = $${params.length}`;
+        attendanceParams.push(year);
+        attendanceQuery += ` AND EXTRACT(YEAR FROM a.attendance_date) = $${attendanceParams.length}`;
 
-        const result = await db.query(query, params);
+        attendanceParams.push(allStudents.rows.map(s => s.student_id));
+        attendanceQuery += ` AND a.student_id = ANY($${attendanceParams.length})`;
 
+        attendanceQuery += ` ORDER BY a.student_id`;
+
+        const attendanceResult = await db.query(attendanceQuery, attendanceParams);
+
+        // Transform into expected format
         const report = {};
-        result.rows.forEach(row => {
-            if (!report[row.student_id]) {
-                report[row.student_id] = {
-                    id: row.student_id,
-                    name: `${row.first_name} ${row.last_name}`,
-                    enrollment_no: row.enrollment_no,
-                    subjects: {}
-                };
-            }
-            if (!report[row.student_id].subjects[row.course_id]) {
-                report[row.student_id].subjects[row.course_id] = { days: {} };
-            }
-            report[row.student_id].subjects[row.course_id].days[parseInt(row.day)] = row.present;
+        allStudents.rows.forEach(student => {
+            report[student.student_id] = {
+                id: student.student_id,
+                name: `${student.first_name} ${student.last_name}`,
+                enrollment_no: student.enrollment_no,
+                subjects: {}
+            };
         });
 
-        res.json({ report: Object.values(report) });
+        // Add attendance data
+        attendanceResult.rows.forEach(row => {
+            if (report[row.student_id]) {
+                if (!report[row.student_id].subjects[row.course_id]) {
+                    report[row.student_id].subjects[row.course_id] = { days: {} };
+                }
+                report[row.student_id].subjects[row.course_id].days[parseInt(row.day)] = row.present;
+            }
+        });
+
+        // Filter to only show students in the requested section
+        const sectionStudents = await db.query(`
+            SELECT sai.student_id
+            FROM student_academic_infos sai
+            WHERE sai.session_id = $1 AND sai.class_id = $2 AND sai.section_id = $3
+        `, [session_id, class_id, section_id]);
+
+        const sectionStudentIds = new Set(sectionStudents.rows.map(s => s.student_id));
+        const filteredReport = Object.values(report).filter(student => 
+            sectionStudentIds.has(student.id)
+        );
+
+        // Sort by enrollment number
+        filteredReport.sort((a, b) => {
+            const aEnroll = a.enrollment_no || '';
+            const bEnroll = b.enrollment_no || '';
+            
+            if (aEnroll === '' && bEnroll !== '') return 1;
+            if (aEnroll !== '' && bEnroll === '') return -1;
+            
+            return aEnroll.localeCompare(bEnroll, undefined, { numeric: true });
+        });
+
+        res.json({ report: filteredReport });
     } catch (err) {
         console.error(err);
         res.status(500).json({ message: 'Server error.', error: err.message });

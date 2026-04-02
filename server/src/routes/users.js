@@ -11,7 +11,7 @@ router.get('/teachers', authenticate, can('view users'), async (req, res) => {
   try {
     const result = await db.query(
       `SELECT id, first_name, last_name, email, gender, phone, photo, role, nationality, city, created_at, enrollment_no
-       FROM users WHERE role = 'teacher' ORDER BY first_name`
+       FROM users WHERE role = 'teacher' ORDER BY CASE WHEN enrollment_no IS NULL OR enrollment_no = '' THEN 1 ELSE 0 END, enrollment_no ASC, first_name ASC`
     );
     res.json({ teachers: result.rows });
   } catch (err) {
@@ -24,7 +24,7 @@ router.get('/employees', authenticate, can('view users'), async (req, res) => {
   try {
     const result = await db.query(
       `SELECT id, first_name, last_name, email, gender, phone, photo, role, nationality, city, created_at, enrollment_no
-       FROM users WHERE role != 'student' ORDER BY role, first_name`
+       FROM users WHERE role != 'student' ORDER BY role, CASE WHEN enrollment_no IS NULL OR enrollment_no = '' THEN 1 ELSE 0 END, enrollment_no ASC, first_name ASC`
     );
     res.json({ employees: result.rows });
   } catch (err) {
@@ -126,6 +126,7 @@ router.get('/students', authenticate, async (req, res) => {
         return res.status(403).json({ message: 'Forbidden.' });
     }
     const { session_id, class_id, section_id } = req.query;
+    
     let query = `
       SELECT u.id, u.first_name, u.last_name, u.email, u.gender, u.photo, u.role, u.enrollment_no,
              sai.class_id, sai.section_id, sai.session_id,
@@ -140,7 +141,7 @@ router.get('/students', authenticate, async (req, res) => {
     if (session_id) { params.push(session_id); query += ` AND sai.session_id = $${params.length}`; }
     if (class_id && class_id !== '0') { params.push(class_id); query += ` AND sai.class_id = $${params.length}`; }
     if (section_id && section_id !== '0') { params.push(section_id); query += ` AND sai.section_id = $${params.length}`; }
-    query += ' ORDER BY u.first_name';
+    query += ' ORDER BY CASE WHEN u.enrollment_no IS NULL OR u.enrollment_no = \'\' THEN 1 ELSE 0 END, u.enrollment_no ASC, u.first_name ASC';
 
     const result = await db.query(query, params);
     res.json({ students: result.rows });
