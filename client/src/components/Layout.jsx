@@ -20,7 +20,7 @@ const Layout = ({ children }) => {
       {/* Sidebar */}
       <div className="sidebar shadow-sm border-end bg-white" style={{ position: 'sticky', top: 0, height: '100vh', zIndex: 1000, minWidth: '240px' }}>
         <div className="p-3 d-flex align-items-center border-bottom mb-2">
-           <img src="/logo.png" alt="Drop Logo" style={{ height: '42px', width: 'auto', objectFit: 'contain' }} />
+           <img src="/logo.png" alt="Drop Logo" style={{ height: '55px', width: 'auto', objectFit: 'contain' }} />
         </div>
         
         <div className="nav flex-column py-3 overflow-auto h-75 custom-scrollbar">
