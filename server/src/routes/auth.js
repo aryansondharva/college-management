@@ -76,7 +76,12 @@ router.post('/login', async (req, res) => {
 router.get('/me', authenticate, async (req, res) => {
   try {
     const result = await db.query(
-      'SELECT id, first_name, last_name, email, role, photo, gender, phone, birthday, address FROM users WHERE id = $1',
+      `SELECT u.id, u.first_name, u.last_name, u.email, u.role, u.photo, u.gender, 
+              u.phone, u.birthday, u.address, u.city, u.zip, u.blood_type, 
+              u.enrollment_no, u.nationality, u.religion, p.father_name
+       FROM users u
+       LEFT JOIN student_parent_infos p ON p.student_id = u.id
+       WHERE u.id = $1`,
       [req.user.id]
     );
     const user = result.rows[0];
@@ -126,7 +131,10 @@ router.post('/change-password', authenticate, async (req, res) => {
 // POST /api/auth/profile
 router.post('/profile', authenticate, async (req, res) => {
   try {
-    const { first_name, last_name, email, phone, gender, birthday, address } = req.body;
+    const { 
+      first_name, last_name, email, phone, gender, birthday, address, 
+      city, zip, blood_type, father_name, nationality, religion 
+    } = req.body;
     
     // Check if email already exists for another user
     const emailCheck = await db.query('SELECT id FROM users WHERE email = $1 AND id != $2', [email, req.user.id]);
@@ -134,15 +142,41 @@ router.post('/profile', authenticate, async (req, res) => {
       return res.status(400).json({ message: 'Email is already in use by another account.' });
     }
 
+    // 1. Update main user table (excluding role and enrollment_no)
     await db.query(
       `UPDATE users 
-       SET first_name = $1, last_name = $2, email = $3, phone = $4, gender = $5, birthday = $6, address = $7, updated_at = NOW() 
-       WHERE id = $8`,
-      [first_name, last_name, email, phone || '', gender || '', birthday === '' ? null : birthday, address || '', req.user.id]
+       SET first_name = $1, last_name = $2, email = $3, phone = $4, gender = $5, 
+           birthday = $6, address = $7, city = $8, zip = $9, blood_type = $10, 
+           nationality = $11, religion = $12, updated_at = NOW() 
+       WHERE id = $13`,
+      [
+        first_name, last_name, email, phone || '', gender || '', 
+        birthday === '' ? null : birthday, address || '', 
+        city || '', zip || '', blood_type || '', nationality || '', 
+        religion || '', req.user.id
+      ]
     );
+
+    // 2. If student, update father_name in parent info
+    const userResult = await db.query('SELECT role FROM users WHERE id = $1', [req.user.id]);
+    if (userResult.rows[0].role === 'student' && father_name) {
+      const parentCheck = await db.query('SELECT 1 FROM student_parent_infos WHERE student_id = $1', [req.user.id]);
+      if (parentCheck.rows.length > 0) {
+        await db.query(
+          'UPDATE student_parent_infos SET father_name = $1, updated_at = NOW() WHERE student_id = $2',
+          [father_name, req.user.id]
+        );
+      } else {
+        await db.query(
+          'INSERT INTO student_parent_infos (student_id, father_name) VALUES ($1, $2)',
+          [req.user.id, father_name]
+        );
+      }
+    }
 
     res.json({ message: 'Profile updated successfully.' });
   } catch (err) {
+    console.error('Error updating profile:', err);
     res.status(500).json({ message: 'Server error.', error: err.message });
   }
 });

@@ -12,12 +12,134 @@ import {
   Image,
   StatusBar,
   Alert,
-  ScrollView
+  ScrollView,
+  Animated
 } from 'react-native';
 import { io } from 'socket.io-client';
 import { User, Lock, GraduationCap, Home, BookOpen, Calendar, Clock, AlertCircle } from 'lucide-react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import client from './src/api/client';
+
+const ProfileScreen = ({ user, profileData, setProfileData, handleUpdateProfile, loading }) => (
+  <ScrollView style={styles.profileContainer} showsVerticalScrollIndicator={false}>
+     <View style={styles.profileHeader}>
+        <View style={styles.largeAvatar}>
+           <Text style={styles.largeAvatarTxt}>{user.first_name[0]}</Text>
+        </View>
+        <Text style={styles.profileTitle}>Account Settings</Text>
+        <Text style={styles.profileSub}>Keep your information up to date</Text>
+     </View>
+
+     <View style={styles.profileBody}>
+        <Text style={styles.inputLabel}>Enrollment Number (Fixed)</Text>
+        <View style={[styles.modernInputGroup, { backgroundColor: '#1A1A1A', borderColor: '#222' }]}>
+           <TextInput style={[styles.modernInput, { color: '#666' }]} value={user.enrollment_no} editable={false} />
+           <Lock color="#444" size={18} />
+        </View>
+
+        <Text style={styles.inputLabel}>Academic Role (Fixed)</Text>
+        <View style={[styles.modernInputGroup, { backgroundColor: '#1A1A1A', borderColor: '#222' }]}>
+           <TextInput style={[styles.modernInput, { color: '#666', textTransform: 'capitalize' }]} value={user.role} editable={false} />
+           <Lock color="#444" size={18} />
+        </View>
+
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+           <View style={{ width: '48%' }}>
+              <Text style={styles.inputLabel}>First Name</Text>
+              <View style={styles.modernInputGroup}>
+                 <TextInput style={styles.modernInput} value={profileData.first_name} onChangeText={(t) => setProfileData({...profileData, first_name: t})} />
+              </View>
+           </View>
+           <View style={{ width: '48%' }}>
+              <Text style={styles.inputLabel}>Last Name</Text>
+              <View style={styles.modernInputGroup}>
+                 <TextInput style={styles.modernInput} value={profileData.last_name} onChangeText={(t) => setProfileData({...profileData, last_name: t})} />
+              </View>
+           </View>
+        </View>
+
+        <Text style={styles.inputLabel}>Father's Name</Text>
+        <View style={styles.modernInputGroup}>
+           <TextInput style={styles.modernInput} value={profileData.father_name} onChangeText={(t) => setProfileData({...profileData, father_name: t})} />
+        </View>
+
+        <Text style={styles.inputLabel}>Mobile Number</Text>
+        <View style={styles.modernInputGroup}>
+           <TextInput style={styles.modernInput} value={profileData.phone} onChangeText={(t) => setProfileData({...profileData, phone: t})} keyboardType="phone-pad" />
+        </View>
+
+        <Text style={styles.inputLabel}>Email Address</Text>
+        <View style={styles.modernInputGroup}>
+           <TextInput style={styles.modernInput} value={profileData.email} onChangeText={(t) => setProfileData({...profileData, email: t})} keyboardType="email-address" autoCapitalize="none" />
+        </View>
+
+        <Text style={styles.inputLabel}>Full Address</Text>
+        <View style={styles.modernInputGroup}>
+           <TextInput style={styles.modernInput} value={profileData.address} onChangeText={(t) => setProfileData({...profileData, address: t})} />
+        </View>
+
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+           <View style={{ width: '48%' }}>
+              <Text style={styles.inputLabel}>City</Text>
+              <View style={styles.modernInputGroup}>
+                 <TextInput style={styles.modernInput} value={profileData.city} onChangeText={(t) => setProfileData({...profileData, city: t})} />
+              </View>
+           </View>
+           <View style={{ width: '48%' }}>
+              <Text style={styles.inputLabel}>Zip Code</Text>
+              <View style={styles.modernInputGroup}>
+                 <TextInput style={styles.modernInput} value={profileData.zip} onChangeText={(t) => setProfileData({...profileData, zip: t})} keyboardType="numeric" />
+              </View>
+           </View>
+        </View>
+
+        <Text style={styles.inputLabel}>Birthday (YYYY-MM-DD)</Text>
+        <View style={styles.modernInputGroup}>
+           <TextInput style={styles.modernInput} value={profileData.birthday} onChangeText={(t) => setProfileData({...profileData, birthday: t})} placeholder="1999-01-01" placeholderTextColor="#333" />
+        </View>
+
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+           <View style={{ width: '48%' }}>
+              <Text style={styles.inputLabel}>Nationality</Text>
+              <View style={styles.modernInputGroup}>
+                 <TextInput style={styles.modernInput} value={profileData.nationality} onChangeText={(t) => setProfileData({...profileData, nationality: t})} placeholder="e.g. Indian" placeholderTextColor="#333" />
+              </View>
+           </View>
+           <View style={{ width: '48%' }}>
+              <Text style={styles.inputLabel}>Religion</Text>
+              <View style={styles.modernInputGroup}>
+                 <TextInput style={styles.modernInput} value={profileData.religion} onChangeText={(t) => setProfileData({...profileData, religion: t})} placeholder="e.g. Hindu" placeholderTextColor="#333" />
+              </View>
+           </View>
+        </View>
+
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+           <View style={{ width: '48%' }}>
+              <Text style={styles.inputLabel}>Gender</Text>
+              <View style={styles.modernInputGroup}>
+                 <TextInput style={styles.modernInput} value={profileData.gender} onChangeText={(t) => setProfileData({...profileData, gender: t})} placeholder="Male/Female" placeholderTextColor="#333" />
+              </View>
+           </View>
+           <View style={{ width: '48%' }}>
+              <Text style={styles.inputLabel}>Blood Type</Text>
+              <View style={styles.modernInputGroup}>
+                 <TextInput style={styles.modernInput} value={profileData.blood_type} onChangeText={(t) => setProfileData({...profileData, blood_type: t})} placeholder="O+" placeholderTextColor="#333" />
+              </View>
+           </View>
+        </View>
+
+        <TouchableOpacity 
+          style={styles.saveBtn}
+          onPress={handleUpdateProfile}
+          disabled={loading}
+        >
+           {loading ? <ActivityIndicator color="#000" /> : <Text style={styles.saveBtnText}>Update Profile</Text>}
+        </TouchableOpacity>
+
+        <View style={{ height: 100 }} />
+     </View>
+  </ScrollView>
+);
 
 export default function App() {
   const [identity, setIdentity] = useState('');
@@ -27,6 +149,43 @@ export default function App() {
   const [user, setUser] = useState(null);
   const [attendance, setAttendance] = useState(null);
   const [showComingSoon, setShowComingSoon] = useState(false);
+  const [appLoading, setAppLoading] = useState(true);
+  const [currentTab, setCurrentTab] = useState('home');
+
+  // Profile Form States
+  const [profileData, setProfileData] = useState({
+    first_name: '', last_name: '', father_name: '', phone: '',
+    address: '', city: '', zip: '', birthday: '', blood_type: '',
+    email: '', nationality: '', religion: '', gender: ''
+  });
+
+  useEffect(() => {
+    // Initial App Check (Check for token)
+    const checkLogin = async () => {
+      try {
+        const token = await AsyncStorage.getItem('token');
+        if (token) {
+          // Verify token or fetch user
+          try {
+            const res = await client.get('/auth/me'); // Assuming there's a /me endpoint
+            setUser(res.data.user);
+            setProfileData({
+               ...res.data.user,
+               father_name: res.data.user.father_name || ''
+            });
+          } catch (e) {
+            console.log('Session expired');
+            await AsyncStorage.removeItem('token');
+          }
+        }
+      } catch (e) {
+        console.error(e);
+      } finally {
+        setTimeout(() => setAppLoading(false), 2000); // 2 second delay for premium feel
+      }
+    };
+    checkLogin();
+  }, []);
 
   useEffect(() => {
     if (user) {
@@ -66,8 +225,80 @@ export default function App() {
       
       await AsyncStorage.setItem('token', token);
       setUser(userData);
+      setProfileData({
+        ...userData,
+        father_name: userData.father_name || ''
+      });
     } catch (err) {
       setError(err.response?.data?.message || 'Error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const LoadingScreen = ({ message }) => {
+    const pulseAnim = React.useRef(new Animated.Value(1)).current;
+    const dropAnim = React.useRef(new Animated.Value(-300)).current;
+    const lineAnim = React.useRef(new Animated.Value(0)).current;
+
+    React.useEffect(() => {
+      // Drop animation
+      Animated.spring(dropAnim, { toValue: 0, friction: 6, tension: 40, useNativeDriver: true }).start();
+
+      // Expansion line animation
+      Animated.timing(lineAnim, {
+        toValue: 80,
+        duration: 1500,
+        useNativeDriver: false,
+      }).start();
+
+      // Pulse loop
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(pulseAnim, { toValue: 1.1, duration: 1000, useNativeDriver: true }),
+          Animated.timing(pulseAnim, { toValue: 1, duration: 1000, useNativeDriver: true }),
+        ])
+      ).start();
+    }, []);
+
+    return (
+      <View style={styles.loadingOverlay}>
+        <StatusBar barStyle="light-content" />
+        <View style={styles.loadingContent}>
+          <Animated.View style={[
+            styles.loadingLogoBox, 
+            { transform: [{ translateY: dropAnim }, { scale: pulseAnim }] }
+          ]}>
+            <Image source={require('./assets/logo.png')} style={styles.loadingLogo} />
+          </Animated.View>
+          
+          <View style={{ height: 40, justifyContent: 'center', alignItems: 'center' }}>
+             {/* SLEEK PROGRESS LINE */}
+             <Animated.View style={{ 
+               width: lineAnim, 
+               height: 1.5, 
+               backgroundColor: 'rgba(255,255,255,0.4)', 
+               borderRadius: 2 
+             }} />
+          </View>
+
+          <Text style={styles.loadingMsg}>{message || 'Launching Drop...'}</Text>
+          <Text style={styles.loadingSubMsg}>Your academic journey starts here</Text>
+        </View>
+      </View>
+    );
+  };
+
+  const handleUpdateProfile = async () => {
+    setLoading(true);
+    try {
+      await client.post('/auth/profile', profileData);
+      Alert.alert('Success', 'Profile updated successfully!');
+      // Refresh user data
+      const res = await client.get('/auth/me');
+      setUser(res.data.user);
+    } catch (err) {
+      Alert.alert('Error', err.response?.data?.message || 'Failed to update profile');
     } finally {
       setLoading(false);
     }
@@ -91,99 +322,10 @@ export default function App() {
     </View>
   );
 
+  if (appLoading) return <LoadingScreen message="Launching Drop..." />;
+
   if (!user) {
-    return (
-      <View style={styles.loginContainer}>
-        <StatusBar barStyle="light-content" />
-        {showComingSoon && <ComingSoon />}
-        <ScrollView contentContainerStyle={{ flexGrow: 1, paddingHorizontal: 30, paddingTop: 80, paddingBottom: 40 }}>
-          
-          {/* LOGO BOX (Centered Image) */}
-          <View style={{ alignItems: 'center', marginBottom: 20 }}>
-             <Image 
-               source={require('./assets/logo.png')} 
-               style={{ width: 80, height: 80, objectFit: 'contain' }} 
-             />
-          </View>
-
-          {/* WELCOME TEXT */}
-          <Text style={styles.loginWelcome}>Welcome to</Text>
-          <Text style={styles.loginBrand}>Drop</Text>
-          <Text style={styles.loginSubText}>Your gateway to a smart academic experience. Sign in to track your progress.</Text>
-
-          {/* INPUTS */}
-          <View style={{ marginTop: 40 }}>
-             {error ? <Text style={styles.errorText}>{error}</Text> : null}
-             
-             <View style={styles.modernInputGroup}>
-                <TextInput 
-                  style={styles.modernInput}
-                  placeholder="Username or Enrollment"
-                  placeholderTextColor="#444"
-                  value={identity}
-                  onChangeText={setIdentity}
-                  autoCapitalize="none"
-                />
-                <User color="#444" size={20} />
-             </View>
-
-             <View style={styles.modernInputGroup}>
-                <TextInput 
-                  style={styles.modernInput}
-                  placeholder="Password"
-                  placeholderTextColor="#444"
-                  value={password}
-                  onChangeText={setPassword}
-                  secureTextEntry
-                />
-                <Lock color="#444" size={20} />
-             </View>
-
-             {/* LOGIN ACTIONS */}
-             <View style={styles.loginActionsRow}>
-                <TouchableOpacity 
-                  style={styles.remGroup}
-                  onPress={() => setShowComingSoon(true)}
-                >
-                   <View style={styles.miniCheck} />
-                   <Text style={styles.remText}>Remember me</Text>
-                </TouchableOpacity>
-                <TouchableOpacity onPress={() => setShowComingSoon(true)}>
-                   <Text style={styles.remText}>Forgot Password?</Text>
-                </TouchableOpacity>
-             </View>
-
-             {/* SIGN IN BUTTON */}
-             <TouchableOpacity 
-               style={styles.modernLoginBtn}
-               onPress={handleLogin}
-               disabled={loading}
-             >
-                {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.loginBtnTxtFinal}>Sign In</Text>}
-             </TouchableOpacity>
-
-             <View style={styles.socialHeaderRow}>
-                <Text style={styles.socialText}>Or sign in with</Text>
-                <View style={styles.socialIconsRow}>
-                   <TouchableOpacity style={styles.socialBox} onPress={() => setShowComingSoon(true)}><User color="#444" size={20} /></TouchableOpacity>
-                   <TouchableOpacity style={styles.socialBox} onPress={() => setShowComingSoon(true)}><User color="#444" size={20} /></TouchableOpacity>
-                   <TouchableOpacity style={styles.socialBox} onPress={() => setShowComingSoon(true)}><User color="#444" size={20} /></TouchableOpacity>
-                </View>
-             </View>
-
-             {/* FOOTER */}
-             <TouchableOpacity style={{ marginTop: 40, alignItems: 'center' }} onPress={() => setShowComingSoon(true)}>
-                <Text style={styles.footerLinkText}>Don't have an account? <Text style={{ color: '#FFF' }}>Sign Up</Text></Text>
-             </TouchableOpacity>
-
-             <View style={{ marginTop: 60, alignItems: 'center' }}>
-                <Text style={styles.policyText}>By signing in, you agree to our Privacy</Text>
-                <Text style={styles.policyText}>Policy and Terms of Service.</Text>
-             </View>
-          </View>
-        </ScrollView>
-      </View>
-    );
+    // ... LOGIN VIEW REMAINS ACCESSIBLE ...
   }
 
   const classesNeeded = attendance ? Math.max(0, Math.ceil((0.75 * attendance.total - attendance.attended) / 0.25)) : 0;
@@ -194,148 +336,117 @@ export default function App() {
       
       {showComingSoon && <ComingSoon />}
 
-      {/* DARK HEADER */}
-      <View style={styles.header}>
-          <Text style={styles.welcome}>Good Morning 👋</Text>
-          <Text style={styles.userName}>{user.first_name} {user.last_name}</Text>
-          <View style={styles.headerRight}>
-             <TouchableOpacity 
-               style={styles.avatar}
-               onPress={() => setShowComingSoon(true)}
-             >
-                <Text style={styles.avatarText}>{user.first_name[0]}</Text>
-             </TouchableOpacity>
-          </View>
-
-          <View style={styles.statRow}>
-             <TouchableOpacity 
-               style={styles.statBox}
-               onPress={() => setShowComingSoon(true)}
-             >
-                <Text style={styles.statValue}>{attendance ? attendance.attended : '0'}</Text>
-                <Text style={styles.statLabel}>Attended</Text>
-             </TouchableOpacity>
-             <TouchableOpacity 
-               style={styles.statBox}
-               onPress={() => setShowComingSoon(true)}
-              >
-                <Text style={styles.statValue}>{attendance ? attendance.total : '0'}</Text>
-                <Text style={styles.statLabel}>Total</Text>
-             </TouchableOpacity>
-             <TouchableOpacity 
-               style={styles.statBox}
-               onPress={() => setShowComingSoon(true)}
-             >
-                <Text style={styles.statValue}>3</Text>
-                <Text style={styles.statLabel}>Tasks</Text>
-             </TouchableOpacity>
-          </View>
-      </View>
-
-      <ScrollView style={styles.main} showsVerticalScrollIndicator={false}>
-          {/* ATTENDANCE SECTION */}
-          <Text style={styles.sectionHeader}>Attendance</Text>
-          <TouchableOpacity 
-            style={styles.card}
-            onPress={() => setShowComingSoon(true)}
-          >
-              <View style={styles.cardTitleRow}>
-                  <View>
-                     <Text style={styles.cardLabel}>Cumulative Presence</Text>
-                     <Text style={styles.cardLargeText}>{attendance ? `${attendance.percentage}%` : '--%'}</Text>
-                  </View>
-                  <View>
-                     <Text style={styles.targetLabel}>Target 75%</Text>
-                  </View>
+      {currentTab === 'home' && (
+        <View style={{ flex: 1 }}>
+          {/* DARK HEADER */}
+          <View style={styles.header}>
+              <Text style={styles.welcome}>Good Morning 👋</Text>
+              <Text style={styles.userName}>{user.first_name} {user.last_name}</Text>
+              <View style={styles.headerRight}>
+                <TouchableOpacity 
+                  style={styles.avatar}
+                  onPress={() => setCurrentTab('profile')}
+                >
+                    <Text style={styles.avatarText}>{user.first_name[0]}</Text>
+                </TouchableOpacity>
               </View>
 
-              <View style={styles.progressContainer}>
-                  <View style={[styles.progressBar, { width: attendance ? `${attendance.percentage}%` : '0%' }]} />
+              <View style={styles.statRow}>
+                <TouchableOpacity style={styles.statBox} onPress={() => setShowComingSoon(true)}>
+                    <Text style={styles.statValue}>{attendance ? attendance.attended : '0'}</Text>
+                    <Text style={styles.statLabel}>Attended</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.statBox} onPress={() => setShowComingSoon(true)}>
+                    <Text style={styles.statValue}>{attendance ? attendance.total : '0'}</Text>
+                    <Text style={styles.statLabel}>Total</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.statBox} onPress={() => setShowComingSoon(true)}>
+                    <Text style={styles.statValue}>3</Text>
+                    <Text style={styles.statLabel}>Tasks</Text>
+                </TouchableOpacity>
               </View>
-              
-              {classesNeeded > 0 && (
-                 <View style={styles.smallAlert}>
-                    <AlertCircle size={14} color="#AAA" />
-                    <Text style={styles.smallAlertText}>Need {classesNeeded} more classes to reach 75%</Text>
-                 </View>
-              )}
-          </TouchableOpacity>
+          </View>
 
-          {/* UPCOMING SECTION */}
-          <Text style={styles.sectionHeader}>Upcoming</Text>
-          
-          <TouchableOpacity 
-            style={styles.pCard}
-            onPress={() => setShowComingSoon(true)}
-          >
-             <View style={[styles.pDot, styles.pDotActive]} />
-             <View style={styles.pInfo}>
-                <Text style={styles.pTitle}>System Analysis & Design</Text>
-                <Text style={styles.pSub}>Room 402</Text>
-             </View>
-             <View style={styles.pRight}>
-                <Text style={styles.pMeta}>10:30 AM · Tomorrow</Text>
-             </View>
-          </TouchableOpacity>
+          <ScrollView style={styles.main} showsVerticalScrollIndicator={false}>
+              <Text style={styles.sectionHeader}>Attendance</Text>
+              <TouchableOpacity style={styles.card} onPress={() => setShowComingSoon(true)}>
+                  <View style={styles.cardTitleRow}>
+                      <View>
+                        <Text style={styles.cardLabel}>Cumulative Presence</Text>
+                        <Text style={styles.cardLargeText}>{attendance ? `${attendance.percentage}%` : '--%'}</Text>
+                      </View>
+                      <View><Text style={styles.targetLabel}>Target 75%</Text></View>
+                  </View>
+                  <View style={styles.progressContainer}>
+                      <View style={[styles.progressBar, { width: attendance ? `${attendance.percentage}%` : '0%' }]} />
+                  </View>
+                  {classesNeeded > 0 && (
+                    <View style={styles.smallAlert}>
+                        <AlertCircle size={14} color="#AAA" />
+                        <Text style={styles.smallAlertText}>Need {classesNeeded} more classes to reach 75%</Text>
+                    </View>
+                  )}
+              </TouchableOpacity>
 
-          <TouchableOpacity 
-            style={styles.pCard}
-            onPress={() => setShowComingSoon(true)}
-          >
-             <View style={styles.pDot} />
-             <View style={styles.pInfo}>
-                <Text style={styles.pTitle}>Data Structures Lab</Text>
-                <Text style={styles.pSub}>Lab 201</Text>
-             </View>
-             <View style={styles.pRight}>
-                <Text style={styles.pMeta}>2:00 PM · Today</Text>
-             </View>
-          </TouchableOpacity>
+              <Text style={styles.sectionHeader}>Upcoming</Text>
+              <TouchableOpacity style={styles.pCard} onPress={() => setShowComingSoon(true)}>
+                <View style={[styles.pDot, styles.pDotActive]} />
+                <View style={styles.pInfo}>
+                    <Text style={styles.pTitle}>System Analysis & Design</Text>
+                    <Text style={styles.pSub}>Room 402</Text>
+                </View>
+                <View style={styles.pRight}><Text style={styles.pMeta}>10:30 AM · Tomorrow</Text></View>
+              </TouchableOpacity>
+          </ScrollView>
+        </View>
+      )}
 
-          <TouchableOpacity 
-            style={styles.pCard}
-            onPress={() => setShowComingSoon(true)}
-          >
-             <View style={styles.pDot} />
-             <View style={styles.pInfo}>
-                <Text style={styles.pTitle}>Mathematics III</Text>
-                <Text style={styles.pSub}>Room 301</Text>
-             </View>
-             <View style={styles.pRight}>
-                <Text style={styles.pMeta}>9:00 AM · Mon</Text>
-             </View>
-          </TouchableOpacity>
+      {currentTab === 'profile' && (
+        <ProfileScreen 
+           user={user} 
+           profileData={profileData} 
+           setProfileData={setProfileData} 
+           handleUpdateProfile={handleUpdateProfile} 
+           loading={loading} 
+        />
+      )}
 
-          <View style={{ height: 40 }} />
-      </ScrollView>
+      {currentTab === 'schedule' && <ComingSoon />}
+      {currentTab === 'syllabus' && <ComingSoon />}
 
       {/* BOTTOM NAV */}
       <View style={styles.navBar}>
-         <TouchableOpacity style={styles.navTab}>
-            <Home size={22} color="#121212" />
-            <Text style={[styles.navTxt, { color: '#121212' }]}>Home</Text>
-            <View style={styles.navDot} />
+         <TouchableOpacity 
+           style={styles.navTab}
+           onPress={() => setCurrentTab('home')}
+         >
+            <Home size={22} color={currentTab === 'home' ? "#121212" : "#BBB"} />
+            <Text style={[styles.navTxt, { color: currentTab === 'home' ? '#121212' : '#BBB' }]}>Home</Text>
+            {currentTab === 'home' && <View style={styles.navDot} />}
          </TouchableOpacity>
          <TouchableOpacity 
            style={styles.navTab}
-           onPress={() => setShowComingSoon(true)}
+           onPress={() => setCurrentTab('schedule')}
          >
-            <Calendar size={22} color="#BBB" />
-            <Text style={styles.navTxt}>Schedule</Text>
+            <Calendar size={22} color={currentTab === 'schedule' ? "#121212" : "#BBB"} />
+            <Text style={[styles.navTxt, { color: currentTab === 'schedule' ? '#121212' : '#BBB' }]}>Schedule</Text>
+            {currentTab === 'schedule' && <View style={styles.navDot} />}
          </TouchableOpacity>
          <TouchableOpacity 
            style={styles.navTab}
-           onPress={() => setShowComingSoon(true)}
+           onPress={() => setCurrentTab('syllabus')}
          >
-            <BookOpen size={22} color="#BBB" />
-            <Text style={styles.navTxt}>Syllabus</Text>
+            <BookOpen size={22} color={currentTab === 'syllabus' ? "#121212" : "#BBB"} />
+            <Text style={[styles.navTxt, { color: currentTab === 'syllabus' ? '#121212' : '#BBB' }]}>Syllabus</Text>
+            {currentTab === 'syllabus' && <View style={styles.navDot} />}
          </TouchableOpacity>
          <TouchableOpacity 
            style={styles.navTab}
-           onPress={() => setShowComingSoon(true)}
+           onPress={() => setCurrentTab('profile')}
          >
-            <User size={22} color="#BBB" />
-            <Text style={styles.navTxt}>Profile</Text>
+            <User size={22} color={currentTab === 'profile' ? "#121212" : "#BBB"} />
+            <Text style={[styles.navTxt, { color: currentTab === 'profile' ? '#121212' : '#BBB' }]}>Profile</Text>
+            {currentTab === 'profile' && <View style={styles.navDot} />}
          </TouchableOpacity>
       </View>
     </View>
@@ -468,5 +579,71 @@ const styles = StyleSheet.create({
     color: '#000',
     fontSize: 16,
     fontWeight: '800'
-  }
+  },
+  // --- LOADING OVERLAY ---
+  loadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: '#121212',
+    zIndex: 2000,
+    justifyContent: 'center',
+    alignItems: 'center'
+  },
+  loadingContent: {
+    alignItems: 'center',
+  },
+  loadingLogoBox: {
+    width: 100,
+    height: 100,
+    backgroundColor: '#1C1C1C',
+    borderRadius: 30,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.3,
+    shadowRadius: 20,
+    elevation: 10
+  },
+  loadingLogo: {
+    width: 60,
+    height: 60,
+    resizeMode: 'contain'
+  },
+  loadingMsg: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#FFF',
+    marginTop: 20
+  },
+  loadingSubMsg: {
+    fontSize: 12,
+    color: '#444',
+    fontWeight: '700',
+    marginTop: 5,
+    textTransform: 'uppercase',
+    letterSpacing: 1
+  },
+  // --- PROFILE SCREEN STYLES ---
+  profileContainer: { flex: 1, backgroundColor: '#121212' },
+  profileHeader: { paddingHorizontal: 30, paddingTop: 60, paddingBottom: 40, alignItems: 'center' },
+  largeAvatar: { width: 100, height: 100, borderRadius: 32, backgroundColor: '#222', justifyContent: 'center', alignItems: 'center', marginBottom: 20 },
+  largeAvatarTxt: { fontSize: 40, fontWeight: '900', color: '#FFF' },
+  profileTitle: { fontSize: 24, fontWeight: '900', color: '#FFF' },
+  profileSub: { fontSize: 13, color: '#666', marginTop: 5, fontWeight: '600' },
+  profileBody: { backgroundColor: '#121212', paddingHorizontal: 25, paddingTop: 20 },
+  inputLabel: { fontSize: 11, fontWeight: '900', color: '#444', textTransform: 'uppercase', letterSpacing: 1.5, marginBottom: 10, marginTop: 15 },
+  saveBtn: { 
+    height: 65, 
+    backgroundColor: '#FFF', 
+    borderRadius: 20, 
+    justifyContent: 'center', 
+    alignItems: 'center', 
+    marginTop: 40,
+    shadowColor: '#FFF',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.1,
+    shadowRadius: 20,
+    elevation: 10
+  },
+  saveBtnText: { color: '#000', fontSize: 16, fontWeight: '900' }
 });

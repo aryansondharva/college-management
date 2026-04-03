@@ -154,7 +154,7 @@ router.get('/students', authenticate, async (req, res) => {
 router.get('/student/:id', authenticate, can('view users'), async (req, res) => {
   try {
     const userResult = await db.query(
-      'SELECT id, first_name, last_name, email, gender, phone, photo, role, nationality, city, birthday, blood_type, religion, address, enrollment_no FROM users WHERE id = $1 AND role = $2',
+      'SELECT id, first_name, last_name, email, gender, phone, photo, role, nationality, city, zip, birthday, blood_type, religion, address, enrollment_no FROM users WHERE id = $1 AND role = $2',
       [req.params.id, 'student']
     );
     if (userResult.rows.length === 0) return res.status(404).json({ message: 'Student not found.' });
