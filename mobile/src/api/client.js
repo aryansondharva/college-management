@@ -3,8 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
 
 const client = axios.create({
-  // Localtunnel: Public access for your phone!
-  baseURL: 'https://unspleenish-mittie-curvilinear.ngrok-free.dev/api',
+  baseURL: 'https://college-management-mjul.onrender.com/api',
   timeout: 10000,
 });
 

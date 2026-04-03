@@ -32,8 +32,8 @@ export default function App() {
     if (user) {
       fetchAttendance();
       
-      // Real-time connection
-      const socket = io('https://unspleenish-mittie-curvilinear.ngrok-free.dev');
+      // Real-time connection (Live Render)
+      const socket = io('https://college-management-mjul.onrender.com');
       
       socket.on(`attendance-updated-${user.id}`, (data) => {
         Alert.alert("Attendance Update!", "Admin has updated your attendance.");
@@ -98,14 +98,17 @@ export default function App() {
         {showComingSoon && <ComingSoon />}
         <ScrollView contentContainerStyle={{ flexGrow: 1, paddingHorizontal: 30, paddingTop: 80, paddingBottom: 40 }}>
           
-          {/* LOGO BOX */}
-          <View style={styles.logoSquare}>
-             <GraduationCap color="#FFF" size={28} />
+          {/* LOGO BOX (Centered Image) */}
+          <View style={{ alignItems: 'center', marginBottom: 20 }}>
+             <Image 
+               source={require('./assets/logo.png')} 
+               style={{ width: 80, height: 80, objectFit: 'contain' }} 
+             />
           </View>
 
           {/* WELCOME TEXT */}
           <Text style={styles.loginWelcome}>Welcome to</Text>
-          <Text style={styles.loginBrand}>Unitransform</Text>
+          <Text style={styles.loginBrand}>Drop</Text>
           <Text style={styles.loginSubText}>Your gateway to a smart academic experience. Sign in to track your progress.</Text>
 
           {/* INPUTS */}
