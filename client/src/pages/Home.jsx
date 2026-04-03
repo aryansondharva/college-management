@@ -31,8 +31,8 @@ const Home = () => {
             <nav className="navbar navbar-expand-lg navbar-light py-4">
                 <div className="container">
                     <a className="navbar-brand d-flex align-items-center" href="/">
-                        <img src="/logo.png" alt="Drop Logo" className="me-2" style={{ width: '32px', height: '32px', borderRadius: '50%' }} />
-                        <span className="fw-bold fs-4 text-dark logo-text">Drop</span>
+                        <img src="/logo.png" alt="Drop Logo" className="me-2" style={{ height: '52px', width: 'auto', objectFit: 'contain' }} />
+                        <span className="fw-bold fs-3 text-dark logo-text ms-1">Drop</span>
                     </a>
                     <button className="navbar-toggler border-0 shadow-none" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
                         <span className="navbar-toggler-icon"></span>
@@ -106,8 +106,8 @@ const Home = () => {
                     <div className="row g-5">
                         <div className="col-lg-4 col-md-6">
                             <div className="d-flex align-items-center mb-3">
-                                <img src="/logo.png" alt="Drop Logo" className="me-2" style={{ width: '28px', height: '28px', borderRadius: '50%' }} />
-                                <span className="fw-bold fs-5 text-dark">Drop</span>
+                                <img src="/logo.png" alt="Drop Logo" className="me-2" style={{ height: '42px', width: 'auto', objectFit: 'contain' }} />
+                                <span className="fw-bold fs-4 text-dark">Drop</span>
                             </div>
                             <p className="text-muted small pe-lg-5 mb-4 line-height-lg">
                                 Simplifying academic workflows with a minimalist approach. We build tools that help educational institutions focus on what matters most: education.
