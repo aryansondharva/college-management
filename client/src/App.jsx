@@ -31,6 +31,10 @@ import ManageAdmitCards from './pages/ManageAdmitCards';
 import ManagePayslips from './pages/ManagePayslips';
 import Employees from './pages/Employees';
 import AddEmployee from './pages/AddEmployee';
+import Overview from './pages/Overview';
+import Pricing from './pages/Pricing';
+import Documentation from './pages/Documentation';
+import Contact from './pages/Contact';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import 'bootstrap-icons/font/bootstrap-icons.css';
 import 'bootstrap/dist/js/bootstrap.bundle.min.js';
@@ -42,6 +46,10 @@ function App() {
         <Routes>
           {/* Public Routes */}
           <Route path="/" element={<Home />} />
+          <Route path="/overview" element={<Overview />} />
+          <Route path="/pricing" element={<Pricing />} />
+          <Route path="/docs" element={<Documentation />} />
+          <Route path="/contact" element={<Contact />} />
           <Route path="/login" element={<Login />} />
           <Route path="/login/:role" element={<Login />} />
 
