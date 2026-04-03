@@ -8,13 +8,13 @@ const Home = () => {
         {
             title: 'Student',
             role: 'student',
-            icon: 'bi-mortarboard',
+            icon: 'bi-person-square',
             desc: 'Access coursework, track grades, and view attendance.'
         },
         {
             title: 'Teacher',
             role: 'teacher',
-            icon: 'bi-person-workspace',
+            icon: 'bi-display',
             desc: 'Manage classes, grade assignments, and monitor student progress.'
         },
         {
@@ -74,23 +74,24 @@ const Home = () => {
             <section className="portals-section py-5 bg-white" id="portals">
                 <div className="container py-5">
                     <div className="text-center mb-5">
-                        <h2 className="fw-bold text-dark mb-3 animate-fade-in">Choose Your Portal</h2>
-                        <p className="text-muted">Select your designated role to log into the system.</p>
+                        <h2 className="fw-bold text-dark mb-2 hero-title">Choose Your Portal</h2>
+                        <p className="text-muted small">Select your designated role to log into the system.</p>
                     </div>
                     <div className="row g-4 justify-content-center">
                         {roles.map((r, i) => (
                             <div key={i} className="col-lg-4 col-md-6 col-sm-12">
                                 <div 
-                                    className="portal-card card h-100 p-5 text-center border text-decoration-none text-dark"
+                                    className="portal-card h-100 p-5 text-center d-flex flex-column"
                                     onClick={() => navigate(`/login/${r.role}`)}
                                 >
-                                    <div className="icon-wrapper mx-auto mb-4 text-dark">
+                                    <div className="icon-wrapper-minimal mx-auto mb-4">
                                         <i className={`bi ${r.icon}`}></i>
                                     </div>
                                     <h4 className="fw-bold mb-3">{r.title}</h4>
-                                    <p className="text-muted mb-0 minimalist-desc">{r.desc}</p>
-                                    <div className="mt-4 pt-4 border-top hover-arrow d-flex align-items-center justify-content-center text-dark fw-medium">
-                                        Login <i className="bi bi-arrow-right ms-2 transition-transform"></i>
+                                    <p className="text-muted small mb-4 flex-grow-1 px-3">{r.desc}</p>
+                                    <div className="divider-minimal mb-4"></div>
+                                    <div className="portal-action-link d-flex align-items-center justify-content-center text-dark">
+                                        Login <i className="bi bi-arrow-right ms-2 fs-6"></i>
                                     </div>
                                 </div>
                             </div>
@@ -179,9 +180,9 @@ const Home = () => {
                                 Simplifying academic workflows with a minimalist approach. We build tools that help educational institutions focus on what matters most: education.
                             </p>
                             <div className="social-links d-flex gap-3">
-                                <a href="#" target="_blank" rel="noopener noreferrer" className="text-muted hover-text-dark"><i className="bi bi-twitter-x"></i></a>
-                                <a href="#" target="_blank" rel="noopener noreferrer" className="text-muted hover-text-dark"><i className="bi bi-github"></i></a>
-                                <a href="#" target="_blank" rel="noopener noreferrer" className="text-muted hover-text-dark"><i className="bi bi-linkedin"></i></a>
+                                <a href="https://x.com/aryansondharva" target="_blank" rel="noopener noreferrer" className="text-muted hover-text-dark"><i className="bi bi-twitter-x"></i></a>
+                                <a href="https://github.com/aryansondharva" target="_blank" rel="noopener noreferrer" className="text-muted hover-text-dark"><i className="bi bi-github"></i></a>
+                                <a href="https://www.linkedin.com/in/aryan-sondharva/" target="_blank" rel="noopener noreferrer" className="text-muted hover-text-dark"><i className="bi bi-linkedin"></i></a>
                             </div>
                         </div>
                         <div className="col-lg-2 col-md-6">
@@ -268,49 +269,60 @@ const Home = () => {
                     margin-right: auto;
                 }
 
-                .portal-card {
-                    border-radius: 16px;
+                 .portal-card {
+                    border: 1px solid #f1f3f5;
+                    border-radius: 20px;
                     background: #ffffff;
-                    border-color: #f0f0f0 !important;
-                    transition: all 0.3s ease;
+                    transition: all 0.4s cubic-bezier(0.165, 0.84, 0.44, 1);
                     cursor: pointer;
-                    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.02), 0 2px 4px -1px rgba(0, 0, 0, 0.02);
+                    box-shadow: 0 5px 15px -3px rgba(0, 0, 0, 0.02);
                 }
                 
                 .portal-card:hover {
-                    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.05), 0 10px 10px -5px rgba(0, 0, 0, 0.02);
-                    transform: translateY(-5px);
-                    border-color: #e5e5e5 !important;
+                    box-shadow: 0 40px 60px -10px rgba(0, 0, 0, 0.06);
+                    transform: translateY(-8px);
+                    border-color: #212529 !important;
                 }
 
-                .icon-wrapper {
-                    width: 64px;
-                    height: 64px;
+                .icon-wrapper-minimal {
+                    width: 70px;
+                    height: 70px;
                     display: flex;
                     align-items: center;
                     justify-content: center;
-                    border-radius: 12px;
+                    border-radius: 14px;
                     background-color: #f8f9fa;
                     font-size: 28px;
-                    transition: background-color 0.3s ease, color 0.3s ease;
+                    color: #212529;
+                    transition: all 0.3s ease;
                 }
                 
-                .portal-card:hover .icon-wrapper {
+                .portal-card:hover .icon-wrapper-minimal {
                     background-color: #212529;
                     color: #ffffff;
+                }
+
+                .divider-minimal {
+                    height: 1px;
+                    width: 80%;
+                    margin: 0 auto;
+                    background: #f1f3f5;
+                }
+
+                .portal-action-link {
+                    font-weight: 500;
+                    letter-spacing: -0.01em;
+                    transition: all 0.2s ease;
+                }
+
+                .portal-card:hover .portal-action-link {
+                    transform: translateX(4px);
+                    font-weight: 700;
                 }
 
                 .minimalist-desc {
                     font-size: 0.95rem;
                     line-height: 1.6;
-                }
-                
-                .transition-transform {
-                    transition: transform 0.2s ease;
-                }
-                
-                .portal-card:hover .hover-arrow i {
-                    transform: translateX(5px);
                 }
 
                 .hover-text-dark {
