@@ -48,6 +48,11 @@ app.use('/api/syllabus', syllabusRoutes);
 app.use('/api/events', eventRoutes);
 app.use('/api/academic-settings', academicSettingRoutes);
 
+// Root route to verify server is running
+app.get('/', (req, res) => {
+  res.send('College Management System API is running');
+});
+
 // Error handling middleware
 app.use((err, req, res, next) => {
   console.error(err.stack);
