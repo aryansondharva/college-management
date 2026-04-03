@@ -23,6 +23,19 @@ const poolConfig = process.env.DATABASE_URL
 
 const pool = new Pool(poolConfig);
 
+// Health check on startup
+pool.connect((err, client, release) => {
+  if (err) {
+    console.error('❌ DATABASE CONNECTION ERROR:', err.message);
+    if (err.message.includes('ENETUNREACH')) {
+      console.error('💡 TIP: Use the Supavisor Pooler URL (*.pooler.supabase.com) to solve IPv6/IPv4 issues.');
+    }
+  } else {
+    console.log('✅ DATABASE CONNECTED SUCCESSFULLY TO:', process.env.DATABASE_URL ? 'Cloud (Supabase/Pooler)' : 'Local');
+    release();
+  }
+});
+
 pool.on('error', (err) => {
   console.error('Unexpected PostgreSQL pool error:', err);
 });

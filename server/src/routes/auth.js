@@ -63,7 +63,12 @@ router.post('/login', async (req, res) => {
       user: { ...userWithoutPassword, permissions }
     });
   } catch (err) {
-    res.status(500).json({ message: 'Server error.', error: err.message });
+    console.error('🔥 LOGIN ERROR:', err);
+    res.status(500).json({ 
+      message: 'Server error.', 
+      error: err.message,
+      hint: err.message.includes('connect') ? 'Check DATABASE_URL connection string and SSL settings.' : 'Check database schema.'
+    });
   }
 });
 
