@@ -13,7 +13,6 @@ const https = require('https');
 // ─── CONFIG ───────────────────────────────────────────────────────────────────
 const SUPABASE_DB_URL  = 'postgresql://postgres:1046402103As@db.ibcggdhomcyoswtotygc.supabase.co:6543/postgres';
 const SUPABASE_PROJECT_ID = 'ibcggdhomcyoswtotygc';
-const SUPABASE_SERVICE_ROLE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImliY2dnZGhvbWN5b3N3dG90eWdjIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NTE1OTg3MSwiZXhwIjoyMDkwNzM1ODcxfQ.QjnXobG406xaL87nAok9oT-dkFhq7n7lE2IAbHQXuu';
 // ─────────────────────────────────────────────────────────────────────────────
 
 const pool = new Pool({
