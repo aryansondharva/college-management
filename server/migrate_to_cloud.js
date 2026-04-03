@@ -3,12 +3,12 @@ const { Pool } = require('pg');
 
 // Local database connection
 const localPool = new Pool({
-  connectionString: 'postgresql://username:password@localhost:5432/college_db' // Update with your local credentials
+  connectionString: 'postgresql://postgres:2301@localhost:5432/unifiedtransform_db'
 });
 
 // Cloud database connection
 const cloudPool = new Pool({
-  connectionString: 'postgresql://postgres:[YOUR-PASSWORD]@db.ibcggdhomcyoswtotygc.supabase.co:5432/postgres'
+  connectionString: 'postgresql://postgres:1046402103As@db.ibcggdhomcyoswtotygc.supabase.co:6543/postgres'
 });
 
 async function migrateDatabase() {
