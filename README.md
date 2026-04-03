@@ -1,4 +1,8 @@
-# 💧 Drop | Modern College Management System
+<p align="center">
+  <img src="./mobile/assets/logo.png" width="150" />
+</p>
+
+# Modern College Management System
 
 **Drop** is a high-fidelity, minimalist educational management platform designed for the modern era. It streamlines academic workflows by connecting students, teachers, and administrators in a unified, real-time ecosystem.
 
