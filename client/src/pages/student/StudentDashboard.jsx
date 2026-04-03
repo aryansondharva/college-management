@@ -4,17 +4,20 @@ import api from '../../api';
 const StudentDashboard = () => {
     const [assignments, setAssignments] = useState([]);
     const [notices, setNotices] = useState([]);
+    const [attendance, setAttendance] = useState({ overall: [], monthly: [] });
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
         const fetchData = async () => {
             try {
-                const [noticeRes, assignmentRes] = await Promise.all([
+                const [noticeRes, assignmentRes, attendanceRes] = await Promise.all([
                     api.get('/notices'),
-                    api.get('/assignments')
+                    api.get('/assignments'),
+                    api.get('/attendance/my-detailed-attendance')
                 ]);
                 setNotices(noticeRes.data.notices.slice(0, 3));
                 setAssignments(assignmentRes.data.assignments || []);
+                setAttendance(attendanceRes.data);
                 setLoading(true);
             } catch (err) { console.error(err); }
             finally { setLoading(false); }
@@ -22,11 +25,55 @@ const StudentDashboard = () => {
         fetchData();
     }, []);
 
+    const getMonthName = (m) => {
+        return new Date(2000, m - 1, 1).toLocaleString('default', { month: 'long' });
+    };
+
     return (
         <div className="student-dashboard container-fluid px-0">
             <div className="d-flex flex-column mb-5 bg-primary text-white p-4 p-md-5 rounded-4 shadow-sm">
-                <h2 className="fw-bolder mb-1">Welcome back! 👋</h2>
+                <h2 className="fw-bolder mb-1">Welcome back!</h2>
                 <p className="opacity-75 mb-0 fs-5 fw-medium">Ready to continue your academic journey? Check your allotted tasks below.</p>
+            </div>
+
+            <div className="row g-4 mb-5">
+                <div className="col-12">
+                   <div className="card border-0 shadow-sm rounded-4 p-4 bg-white border-start border-success border-5">
+                       <h5 className="fw-bold mb-4"><i className="bi bi-graph-up-arrow me-2 text-success"></i>Subject-wise Attendance</h5>
+                       <div className="row g-3">
+                           {attendance.overall.map(sub => {
+                               const percent = sub.total > 0 ? Math.round((sub.attended / sub.total) * 100) : 0;
+                               return (
+                                   <div key={sub.course_id} className="col-md-4 col-lg-3">
+                                       <div className="p-3 rounded-4 bg-light border-0 shadow-hover transition-all h-100">
+                                           <div className="d-flex justify-content-between align-items-start mb-2">
+                                               <span className="badge bg-white text-dark border small fw-bold px-2 py-1 rounded-pill">{sub.subject_code}</span>
+                                               <span className={`fw-bold ${percent < 75 ? 'text-danger' : 'text-success'}`}>{percent}%</span>
+                                           </div>
+                                           <h6 className="fw-bold mb-3">{sub.subject_name}</h6>
+                                           <div className="progress mb-2" style={{ height: '6px' }}>
+                                               <div 
+                                                   className={`progress-bar ${percent < 75 ? 'bg-danger' : 'bg-success'}`} 
+                                                   role="progressbar" 
+                                                   style={{ width: `${percent}%` }}
+                                               ></div>
+                                           </div>
+                                           <div className="text-muted small fw-bold d-flex justify-content-between">
+                                               <span>Attended: {sub.attended}</span>
+                                               <span>Total: {sub.total}</span>
+                                           </div>
+                                       </div>
+                                   </div>
+                               );
+                           })}
+                           {attendance.overall.length === 0 && (
+                               <div className="col-12 text-center p-4 text-muted border border-dashed rounded-4">
+                                   No attendance data available.
+                               </div>
+                           )}
+                       </div>
+                   </div>
+                </div>
             </div>
 
             <div className="row g-4">
@@ -36,7 +83,39 @@ const StudentDashboard = () => {
                             <h5 className="fw-bold m-0"><i className="bi bi-journal-check me-2 text-primary"></i>My Allotted Work</h5>
                             <span className="badge bg-light text-dark border-0 rounded-pill px-3 py-2 small fw-bold">Active {assignments.length} Tasks</span>
                         </div>
-                        <div className="d-flex flex-column gap-3">
+                        {/* Table for monthly view */}
+                        <div className="mb-4">
+                            <h6 className="fw-bold text-muted small text-uppercase mb-3">Monthly Breakdown</h6>
+                            <div className="table-responsive">
+                                <table className="table table-sm table-hover align-middle border-0 mb-0">
+                                    <thead className="bg-light border-0">
+                                        <tr>
+                                            <th className="border-0 ps-3">Subject</th>
+                                            <th className="border-0">Month</th>
+                                            <th className="border-0 text-center">Attendance</th>
+                                            <th className="border-0 text-end pe-3">Ratio</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="border-0">
+                                        {attendance.monthly.slice(0, 8).map((m, idx) => (
+                                            <tr key={idx} className="border-bottom border-light">
+                                                <td className="ps-3 fw-bold small py-3">{m.subject_name}</td>
+                                                <td className="text-muted small">{getMonthName(m.month)} {m.year}</td>
+                                                <td className="text-center">
+                                                    <span className={`badge ${Math.round((m.attended / m.total) * 100) < 75 ? 'bg-soft-danger text-danger' : 'bg-soft-success text-success'} rounded-pill px-3 fw-bold`}>
+                                                        {Math.round((m.attended / m.total) * 100)}%
+                                                    </span>
+                                                </td>
+                                                <td className="text-end pe-3 small fw-bold">{m.attended} / {m.total}</td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <div className="d-flex flex-column gap-3 mt-4">
+                            <h6 className="fw-bold text-muted small text-uppercase">Assignments</h6>
                             {assignments.map(task => (
                                 <div key={task.id} className="p-4 rounded-4 bg-light border-0 transition-all hover-translate-x shadow-hover">
                                     <div className="d-flex align-items-center justify-content-between mb-2">
@@ -87,6 +166,9 @@ const StudentDashboard = () => {
                 .shadow-hover:hover { box-shadow: 0 10px 30px rgba(0,0,0,0.05); background-color: #fff !important; cursor: pointer; }
                 .line-height-lg { line-height: 1.65; }
                 .line-clamp-2 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+                .bg-soft-success { background-color: #e6f7ec; }
+                .bg-soft-danger { background-color: #fbe9e9; }
+                .table-sm th { font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: #999; }
             `}</style>
         </div>
     );

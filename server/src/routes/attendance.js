@@ -407,4 +407,50 @@ router.get('/student-summary', authenticate, async (req, res) => {
     }
 });
 
+// GET /api/attendance/my-detailed-attendance
+router.get('/my-detailed-attendance', authenticate, async (req, res) => {
+    try {
+        const student_id = req.user.id;
+        
+        // 1. Overall subject-wise attendance
+        const overallResult = await db.query(`
+            SELECT 
+                c.id as course_id,
+                c.name as subject_name,
+                c.code as subject_code,
+                COUNT(a.id) FILTER (WHERE a.present = true) as attended,
+                COUNT(a.id) as total
+            FROM courses c
+            JOIN student_academic_infos sai ON sai.class_id = c.class_id
+            LEFT JOIN attendances a ON a.course_id = c.id AND a.student_id = $1
+            WHERE sai.student_id = $1
+            GROUP BY c.id, c.name, c.code
+        `, [student_id]);
+
+        // 2. Month-wise subject-wise attendance
+        const monthlyResult = await db.query(`
+            SELECT 
+                c.id as course_id,
+                c.name as subject_name,
+                EXTRACT(MONTH FROM a.attendance_date) as month,
+                EXTRACT(YEAR FROM a.attendance_date) as year,
+                COUNT(a.id) FILTER (WHERE a.present = true) as attended,
+                COUNT(a.id) as total
+            FROM courses c
+            JOIN attendances a ON a.course_id = c.id
+            WHERE a.student_id = $1
+            GROUP BY c.id, c.name, month, year
+            ORDER BY year DESC, month DESC, c.name ASC
+        `, [student_id]);
+
+        res.json({
+            overall: overallResult.rows,
+            monthly: monthlyResult.rows
+        });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: 'Server error.', error: err.message });
+    }
+});
+
 module.exports = router;
