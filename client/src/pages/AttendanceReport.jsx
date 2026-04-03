@@ -8,6 +8,7 @@ const AttendanceReport = () => {
     const [courses, setCourses] = useState([]);
     
     const [reportData, setReportData] = useState([]);
+    const [overallReportData, setOverallReportData] = useState([]);
     const [dailyReportData, setDailyReportData] = useState([]);
     const [subjectDailyData, setSubjectDailyData] = useState([]);
     
@@ -55,14 +56,16 @@ const AttendanceReport = () => {
         e.preventDefault();
         setLoading(true);
         try {
-            const [res, dailyRes, subjDailyRes] = await Promise.all([
+            const [res, dailyRes, subjDailyRes, overallRes] = await Promise.all([
                 api.get('/attendance/report', { params: filters }),
                 api.get('/attendance/daily-report', { params: filters }),
-                api.get('/attendance/subject-daily-report', { params: filters })
+                api.get('/attendance/subject-daily-report', { params: filters }),
+                api.get('/attendance/overall-report', { params: filters })
             ]);
             setReportData(res.data.report);
             setDailyReportData(dailyRes.data.report);
             setSubjectDailyData(subjDailyRes.data.report);
+            setOverallReportData(overallRes.data.report);
         } catch (err) {
             console.error(err);
         } finally {
@@ -171,6 +174,15 @@ const AttendanceReport = () => {
                                     <i className="bi bi-pie-chart me-2"></i> Monthly Totals
                                 </button>
                             </li>
+                            <li className="nav-item">
+                                <button
+                                    className={`nav-link border-0 text-dark fw-bold py-3 ${activeTab === 'overall' ? 'active-tab shadow-sm' : 'text-muted bg-light bg-opacity-50'}`}
+                                    onClick={() => setActiveTab('overall')}
+                                    style={activeTab === 'overall' ? { borderBottom: '3px solid #212529 !important', background: '#fff' } : {}}
+                                >
+                                    <i className="bi bi-layers me-2"></i> Overall Sem Totals
+                                </button>
+                            </li>
                         </ul>
                     </div>
                     
@@ -181,8 +193,9 @@ const AttendanceReport = () => {
                                 {activeTab === 'subject-daily' && "Granular Daily Attendance (Broken down by all subjects)"}
                                 {activeTab === 'single-subject' && "Specific Subject Daily Attendance"}
                                 {activeTab === 'monthly' && "Total Monthly Aggregate (Percentage of classes attended)"}
+                                {activeTab === 'overall' && "Overall Semester Aggregate (Percentage of classes attended)"}
                             </h6>
-                            {activeTab !== 'monthly' && (
+                            {activeTab !== 'monthly' && activeTab !== 'overall' && (
                                 <div className="small text-muted d-flex align-items-center">
                                     <span className="text-success fw-bold ms-2 me-1">P</span> Present &middot; 
                                     <span className="text-danger fw-bold ms-2 me-1">A</span> Absent &middot; 
@@ -382,6 +395,64 @@ const AttendanceReport = () => {
                                     </thead>
                                     <tbody>
                                         {reportData.map(student => {
+                                            let totalAttended = 0;
+                                            let totalLectures = 0;
+                                            return (
+                                                <tr key={student.id}>
+                                                    <td className="text-start p-3 fw-bold ps-4">
+                                                        {student.name}
+                                                        <div className="text-muted small fw-normal">{student.enrollment_no}</div>
+                                                    </td>
+                                                    {courses.map(c => {
+                                                        const stats = student.subjects[c.id];
+                                                        if (stats) {
+                                                            totalAttended += stats.attended;
+                                                            totalLectures += stats.total;
+                                                        }
+                                                        return (
+                                                            <td key={c.id}>
+                                                                {stats ? (
+                                                                    <div className="fw-bold">
+                                                                        <span className="text-success">{stats.attended}</span>
+                                                                        <span className="mx-1 text-muted">/</span>
+                                                                        <span>{stats.total}</span>
+                                                                    </div>
+                                                                ) : <span className="text-muted opacity-50">-</span>}
+                                                            </td>
+                                                        );
+                                                    })}
+                                                    <td className="p-3">
+                                                        <div className="fw-bold fs-6">{totalAttended} / {totalLectures}</div>
+                                                        <div className={`badge ${totalLectures > 0 && (totalAttended / totalLectures) >= 0.75 ? 'bg-success' : 'bg-danger'} bg-opacity-10 text-${totalLectures > 0 && (totalAttended / totalLectures) >= 0.75 ? 'success' : 'danger'}`}>
+                                                            {totalLectures > 0 ? Math.round((totalAttended / totalLectures) * 100) : 0}%
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })}
+                                    </tbody>
+                                </table>
+                            </div>
+                        )}
+
+                        {/* TAB 5: Subject-Wise Overall Totals */}
+                        {activeTab === 'overall' && (
+                            <div className="table-responsive">
+                                <table className="table table-bordered align-middle text-center mb-0">
+                                    <thead className="bg-light text-dark">
+                                        <tr>
+                                            <th className="p-3 text-start" style={{ minWidth: '200px' }}>Student Name</th>
+                                            {courses.map(c => (
+                                                <th key={c.id} className="p-3">
+                                                    {getShortName(c.name)}
+                                                    <div style={{ fontSize: '10px' }} className="text-muted fw-normal">{c.name}</div>
+                                                </th>
+                                            ))}
+                                            <th className="p-3">Total / %</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {overallReportData.map(student => {
                                             let totalAttended = 0;
                                             let totalLectures = 0;
                                             return (

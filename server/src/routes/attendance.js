@@ -161,6 +161,61 @@ router.get('/report', authenticate, can('view attendances'), async (req, res) =>
     }
 });
 
+// GET /api/attendance/overall-report
+// Overall semester summary for a class
+router.get('/overall-report', authenticate, can('view attendances'), async (req, res) => {
+    try {
+        const { session_id, class_id, section_id } = req.query;
+        if (!session_id || !class_id) {
+            return res.status(400).json({ message: 'Missing required filters.' });
+        }
+
+        const allStudents = await db.query(`
+            SELECT u.id as student_id, u.first_name, u.last_name, u.enrollment_no
+            FROM users u
+            LEFT JOIN student_academic_infos sai ON sai.student_id = u.id
+            WHERE u.role = 'student' AND sai.session_id = $1 AND sai.class_id = $2 AND sai.section_id = $3
+            ORDER BY CASE WHEN u.enrollment_no IS NULL OR u.enrollment_no = '' THEN 1 ELSE 0 END, u.enrollment_no ASC, u.first_name ASC
+        `, [session_id, class_id, section_id]);
+
+        const attendanceData = await db.query(`
+            SELECT 
+                a.student_id, 
+                a.course_id, 
+                COUNT(*) FILTER (WHERE a.present = true) as attended,
+                COUNT(*) as total
+            FROM attendances a
+            WHERE a.session_id = $1 AND a.class_id = $2 AND a.section_id = $3
+              AND a.student_id = ANY($4)
+            GROUP BY a.student_id, a.course_id
+        `, [session_id, class_id, section_id, allStudents.rows.map(s => s.student_id)]);
+
+        const report = {};
+        allStudents.rows.forEach(student => {
+            report[student.student_id] = {
+                id: student.student_id,
+                name: `${student.first_name} ${student.last_name}`,
+                enrollment_no: student.enrollment_no,
+                subjects: {}
+            };
+        });
+
+        attendanceData.rows.forEach(row => {
+            if (report[row.student_id]) {
+                report[row.student_id].subjects[row.course_id] = {
+                    attended: parseInt(row.attended),
+                    total: parseInt(row.total)
+                };
+            }
+        });
+
+        res.json({ report: Object.values(report) });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: 'Server error.', error: err.message });
+    }
+});
+
 // GET /api/attendance/daily-report
 // Daily summary for a class
 router.get('/daily-report', authenticate, can('view attendances'), async (req, res) => {
