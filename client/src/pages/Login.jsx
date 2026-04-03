@@ -17,7 +17,7 @@ const Login = () => {
     student: { title: 'Student', icon: 'bi-mortarboard' },
     teacher: { title: 'Teacher', icon: 'bi-person-workspace' },
     admin: { title: 'Admin', icon: 'bi-shield-check' }
-  }[role] || { title: 'Unitransform', icon: 'bi-layers-fill' };
+  }[role] || { title: 'Drop', icon: 'bi-layers-fill' };
 
   const handleLogin = async (e) => {
     e.preventDefault();

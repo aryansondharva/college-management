@@ -20,8 +20,8 @@ const Layout = ({ children }) => {
       {/* Sidebar */}
       <div className="sidebar shadow-sm border-end bg-white" style={{ position: 'sticky', top: 0, height: '100vh', zIndex: 1000, minWidth: '240px' }}>
         <div className="p-3 d-flex align-items-center border-bottom mb-2">
-           <i className="bi bi-house-door text-dark me-2 fs-5"></i>
-           <span className="h6 fw-bolder m-0 tracking-tight text-dark">Unitransform</span>
+           <img src="/logo.png" alt="Drop Logo" className="me-2" style={{ width: '28px', height: '28px', borderRadius: '50%' }} />
+           <span className="h6 fw-bolder m-0 tracking-tight text-dark">Drop</span>
         </div>
         
         <div className="nav flex-column py-3 overflow-auto h-75 custom-scrollbar">

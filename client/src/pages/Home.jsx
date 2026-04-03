@@ -31,10 +31,8 @@ const Home = () => {
             <nav className="navbar navbar-expand-lg navbar-light py-4">
                 <div className="container">
                     <a className="navbar-brand d-flex align-items-center" href="/">
-                        <div className="logo-icon bg-dark text-white rounded-circle d-flex align-items-center justify-content-center me-2">
-                            <i className="bi bi-layers-fill"></i>
-                        </div>
-                        <span className="fw-bold fs-4 text-dark logo-text">Uni<span className="text-secondary fw-normal">transform</span></span>
+                        <img src="/logo.png" alt="Drop Logo" className="me-2" style={{ width: '32px', height: '32px', borderRadius: '50%' }} />
+                        <span className="fw-bold fs-4 text-dark logo-text">Drop</span>
                     </a>
                     <button className="navbar-toggler border-0 shadow-none" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
                         <span className="navbar-toggler-icon"></span>
@@ -108,8 +106,8 @@ const Home = () => {
                     <div className="row g-5">
                         <div className="col-lg-4 col-md-6">
                             <div className="d-flex align-items-center mb-3">
-                                <i className="bi bi-layers-fill fs-4 me-2"></i>
-                                <span className="fw-bold fs-5 text-dark">Unitransform</span>
+                                <img src="/logo.png" alt="Drop Logo" className="me-2" style={{ width: '28px', height: '28px', borderRadius: '50%' }} />
+                                <span className="fw-bold fs-5 text-dark">Drop</span>
                             </div>
                             <p className="text-muted small pe-lg-5 mb-4 line-height-lg">
                                 Simplifying academic workflows with a minimalist approach. We build tools that help educational institutions focus on what matters most: education.
@@ -149,7 +147,7 @@ const Home = () => {
                     </div>
                     <div className="row mt-5 pt-4 border-top">
                         <div className="col-md-6 text-center text-md-start mb-3 mb-md-0">
-                            <p className="m-0 text-muted small">&copy; 2026 Unitransform. All rights reserved.</p>
+                            <p className="m-0 text-muted small">&copy; 2026 Drop. All rights reserved.</p>
                         </div>
                         <div className="col-md-6 text-center text-md-end">
                             <ul className="list-inline m-0 small">
