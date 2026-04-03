@@ -52,6 +52,29 @@ app.use('/api/syllabus', syllabusRoutes);
 app.use('/api/events', eventRoutes);
 app.use('/api/academic-settings', academicSettingRoutes);
 
+// Debug route to diagnose Render -> Supabase issues
+app.get('/api/debug-db', async (req, res) => {
+  const db = require('./config/database');
+  try {
+    const result = await db.query('SELECT current_database(), now()');
+    res.json({
+      status: '✅ Connected!',
+      database: result.rows[0].current_database,
+      server_time: result.rows[0].now,
+      env: process.env.NODE_ENV,
+      db_url_redacted: process.env.DATABASE_URL ? process.env.DATABASE_URL.replace(/:[^:@]+@/, ':****@') : 'NOT SET'
+    });
+  } catch (err) {
+    res.status(500).json({
+      status: '❌ Connection Failed',
+      error: err.message,
+      code: err.code,
+      stack: err.stack,
+      hint: 'If you see ENETUNREACH, you MUST change your DATABASE_URL to use the Supavisor Pooler URL in Render settings.'
+    });
+  }
+});
+
 // Error handling middleware
 app.use((err, req, res, next) => {
   console.error(err.stack);
