@@ -39,8 +39,8 @@ const Login = () => {
       <div className="login-card card border-0 shadow-lg" style={{ maxWidth: '420px', width: '100%', borderRadius: '16px' }}>
         <div className="card-body p-5">
           <div className="text-center mb-4">
-            <div className="icon-circle bg-light d-inline-flex align-items-center justify-content-center rounded-circle mb-3" style={{ width: '64px', height: '64px' }}>
-              <i className={`bi ${roleConfig.icon} fs-2 text-dark`}></i>
+            <div className="mb-3">
+              <img src="/logo.png" alt="Drop Logo" style={{ height: '80px', width: 'auto', objectFit: 'contain' }} />
             </div>
             <h2 className="fw-bold text-dark mb-1">{roleConfig.title} Login</h2>
             <p className="text-muted small">Please enter your credentials to proceed.</p>
