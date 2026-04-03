@@ -416,10 +416,34 @@ export default function App() {
               <Text style={{ color: '#666', fontWeight: '800' }}>← Back to Home</Text>
             </TouchableOpacity>
             <Text style={styles.userName}>Attendance Report</Text>
-            <Text style={styles.welcome}>Detailed monthly breakdown</Text>
+            <Text style={styles.welcome}>Overall semester & monthly breakdown</Text>
           </View>
           <ScrollView style={styles.main} showsVerticalScrollIndicator={false}>
-            <Text style={styles.sectionHeader}>Monthly Summary</Text>
+            {/* OVERALL SEMESTER SUMMARY */}
+            <Text style={styles.sectionHeader}>Overall Semester Aggregate</Text>
+            {detailedAttendance.overall.map((sub, idx) => {
+              const p = sub.total > 0 ? Math.round((sub.attended / sub.total) * 100) : 0;
+              return (
+                <View key={`overall-${sub.course_id}`} style={styles.monthlyRow}>
+                  <View style={styles.monthlyInfo}>
+                    <Text style={styles.monthlySub}>{sub.subject_name}</Text>
+                    <Text style={styles.monthlyDate}>{sub.subject_code} · Total Semester</Text>
+                  </View>
+                  <View style={styles.monthlyStats}>
+                    <Text style={styles.monthlyRatio}>{sub.attended} / {sub.total}</Text>
+                    <Text style={[styles.monthlyPerc, { color: p < 75 ? '#FF5A5F' : '#2ecc71' }]}>
+                      {p}%
+                    </Text>
+                  </View>
+                </View>
+              );
+            })}
+            {detailedAttendance.overall.length === 0 && (
+              <Text style={{ textAlign: 'center', color: '#BBB', marginTop: 10, marginBottom: 20, fontWeight: '700' }}>No overall data found.</Text>
+            )}
+
+            {/* MONTHLY SUMMARY */}
+            <Text style={[styles.sectionHeader, { marginTop: 20 }]}>Monthly Breakdown</Text>
             {detailedAttendance.monthly.map((m, idx) => (
               <View key={idx} style={styles.monthlyRow}>
                 <View style={styles.monthlyInfo}>
@@ -435,7 +459,7 @@ export default function App() {
               </View>
             ))}
             {detailedAttendance.monthly.length === 0 && (
-              <Text style={{ textAlign: 'center', color: '#BBB', marginTop: 40, fontWeight: '700' }}>No monthly data found.</Text>
+              <Text style={{ textAlign: 'center', color: '#BBB', marginTop: 10, fontWeight: '700' }}>No monthly data found.</Text>
             )}
             <View style={{ height: 40 }} />
           </ScrollView>

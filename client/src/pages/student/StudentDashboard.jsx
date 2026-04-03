@@ -31,10 +31,43 @@ const StudentDashboard = () => {
 
     return (
         <div className="student-dashboard container-fluid px-0">
-            <div className="d-flex flex-column mb-5 bg-primary text-white p-4 p-md-5 rounded-4 shadow-sm">
-                <h2 className="fw-bolder mb-1">Welcome back!</h2>
-                <p className="opacity-75 mb-0 fs-5 fw-medium">Ready to continue your academic journey? Check your allotted tasks below.</p>
+            <div className="d-flex flex-column mb-5 bg-primary text-white p-4 p-md-5 rounded-4 shadow-sm position-relative overflow-hidden">
+                <div className="position-relative" style={{ zIndex: 1 }}>
+                    <h2 className="fw-bolder mb-1">Welcome back!</h2>
+                    <p className="opacity-75 mb-0 fs-5 fw-medium">Ready to continue your academic journey? Check your allotted tasks below.</p>
+                </div>
+                {attendance.overall.length > 0 && (() => {
+                    const totalAttended = attendance.overall.reduce((sum, sub) => sum + sub.attended, 0);
+                    const totalLectures = attendance.overall.reduce((sum, sub) => sum + sub.total, 0);
+                    const percent = totalLectures > 0 ? Math.round((totalAttended / totalLectures) * 100) : 0;
+                    return (
+                        <div className="position-absolute end-0 top-50 translate-middle-y me-4 me-md-5 d-none d-md-flex align-items-center bg-white bg-opacity-25 rounded-4 p-3 border border-white border-opacity-25 backdrop-blur">
+                            <div className="me-3 text-end">
+                                <div className="text-white text-uppercase small fw-bold tracking-widest" style={{ letterSpacing: '1px', fontSize: '0.7rem' }}>Overall Semester Aggregate</div>
+                                <div className="text-white opacity-75 small">Percentage of classes attended</div>
+                            </div>
+                            <div className="display-4 fw-bold mb-0">
+                                {percent}%
+                            </div>
+                        </div>
+                    );
+                })()}
             </div>
+
+            {/* Mobile View Overall Aggregate Card */}
+            {attendance.overall.length > 0 && (() => {
+                const totalAttended = attendance.overall.reduce((sum, sub) => sum + sub.attended, 0);
+                const totalLectures = attendance.overall.reduce((sum, sub) => sum + sub.total, 0);
+                const percent = totalLectures > 0 ? Math.round((totalAttended / totalLectures) * 100) : 0;
+                return (
+                    <div className="d-md-none card border-0 shadow-sm rounded-4 p-4 mb-4 bg-dark text-white text-center position-relative overflow-hidden">
+                        <div className="position-absolute top-0 start-0 w-100 h-100 bg-gradient" style={{ opacity: 0.1 }}></div>
+                        <h6 className="text-uppercase small fw-bold tracking-widest text-white-50 mb-1">Overall Semester Aggregate</h6>
+                        <div className="display-3 fw-bold">{percent}%</div>
+                        <div className="small text-white-50">Percentage of classes attended ({totalAttended}/{totalLectures})</div>
+                    </div>
+                );
+            })()}
 
             <div className="row g-4 mb-5">
                 <div className="col-12">
