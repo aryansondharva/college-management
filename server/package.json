@@ -6,7 +6,8 @@
   "scripts": {
     "start": "node src/index.js",
     "dev": "nodemon src/index.js",
-    "db:setup": "node src/db/setup.js"
+    "db:setup": "node src/db/setup.js",
+    "sync:supabase": "node push_to_supabase.js"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
