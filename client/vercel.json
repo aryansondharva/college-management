@@ -1,0 +1,22 @@
+{
+  "version": 2,
+  "name": "college-management-frontend",
+  "builds": [
+    {
+      "src": "package.json",
+      "use": "@vercel/static",
+      "config": {
+        "distDir": "dist"
+      }
+    }
+  ],
+  "routes": [
+    {
+      "src": "dist",
+      "dest": "/"
+    }
+  ],
+  "env": {
+    "VITE_API_URL": "https://your-backend-url.onrender.com/api"
+  }
+}

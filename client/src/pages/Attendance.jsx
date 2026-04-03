@@ -56,6 +56,12 @@ const Attendance = () => {
         setLoading(true);
         setMessage({ text: '', type: '' });
         try {
+            // Ensure courses are loaded for this class
+            if (courses.length === 0) {
+                const courseRes = await api.get(`/courses?class_id=${filters.class_id}`);
+                setCourses(courseRes.data.courses);
+            }
+            
             // First fetch the student list for this section
             const studentRes = await api.get('/users/students', { params: filters });
             setStudents(studentRes.data.students);
@@ -65,6 +71,8 @@ const Attendance = () => {
             
             // Build a structured map: studentId -> { courseId: presentStatus }
             const initialMap = {};
+            const currentCourses = courses.length > 0 ? courses : (await api.get(`/courses?class_id=${filters.class_id}`)).data.courses;
+            
             studentRes.data.students.forEach(s => {
                 const studentAttendances = attendRes.data.attendances.filter(a => a.student_id === s.id);
                 const subjMap = {};
@@ -75,7 +83,7 @@ const Attendance = () => {
                     subjMap[filters.course_id] = record ? record.present : true;
                 } else {
                     // Bulk mode: map all current class subjects
-                    courses.forEach(c => {
+                    currentCourses.forEach(c => {
                         const record = studentAttendances.find(a => a.course_id === c.id);
                         subjMap[c.id] = record ? record.present : true;
                     });
@@ -207,8 +215,8 @@ const Attendance = () => {
                                                     </div>
                                                     <div>
                                                         <div className="fw-bold">{student.first_name} {student.last_name}</div>
-                                                        <div className="text-muted small">
-                                                            {student.enrollment_no ? `Enrollment: ${student.enrollment_no}` : `ID: ${student.id}`}
+                                                        <div className="text-muted small fw-bold">
+                                                            {student.enrollment_no ? `Enrollment No: ${student.enrollment_no}` : `ID: ${student.id}`}
                                                         </div>
                                                     </div>
                                                 </div>

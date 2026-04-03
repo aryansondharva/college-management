@@ -1,0 +1,18 @@
+services:
+  - type: web
+    name: college-management-backend
+    env: node
+    repo: https://github.com/aryansondharva/college-management
+    rootDir: server
+    buildCommand: npm install
+    startCommand: npm start
+    plan: free
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: PORT
+        value: 10000
