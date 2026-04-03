@@ -13,7 +13,7 @@ const bcrypt = require('bcryptjs');
 const { Pool } = require('pg');
 
 // Supabase Connection String (from push_to_supabase.js)
-const SUPABASE_URL = 'postgresql://postgres:1046402103As@aws-1-ap-southeast-1.pooler.supabase.com:6543/postgres';
+const SUPABASE_URL = 'postgresql://postgres.ibcggdhomcyoswtotygc:1046402103As@aws-1-ap-southeast-1.pooler.supabase.com:5432/postgres';
 
 const pool = new Pool({
   connectionString: SUPABASE_URL,

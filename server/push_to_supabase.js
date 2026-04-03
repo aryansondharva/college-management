@@ -13,7 +13,7 @@ const { Pool } = require('pg');
 
 // ─── CONFIG ───────────────────────────────────────────────────────────────────
 const LOCAL_DB_URL  = 'postgresql://postgres:2301@localhost:5432/unifiedtransform_db';
-const SUPABASE_URL  = 'postgresql://postgres:1046402103As@aws-1-ap-southeast-1.pooler.supabase.com:6543/postgres';
+const SUPABASE_URL  = 'postgresql://postgres.ibcggdhomcyoswtotygc:1046402103As@aws-1-ap-southeast-1.pooler.supabase.com:5432/postgres';
 // ─────────────────────────────────────────────────────────────────────────────
 
 const localPool    = new Pool({ connectionString: LOCAL_DB_URL });

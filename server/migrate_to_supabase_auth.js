@@ -11,7 +11,7 @@ const { Pool } = require('pg');
 const https = require('https');
 
 // ─── CONFIG ───────────────────────────────────────────────────────────────────
-const SUPABASE_DB_URL  = 'postgresql://postgres:1046402103As@aws-1-ap-southeast-1.pooler.supabase.com:6543/postgres';
+const SUPABASE_DB_URL  = 'postgresql://postgres.ibcggdhomcyoswtotygc:1046402103As@aws-1-ap-southeast-1.pooler.supabase.com:5432/postgres';
 const SUPABASE_PROJECT_ID = 'ibcggdhomcyoswtotygc';
 // ─────────────────────────────────────────────────────────────────────────────
 
