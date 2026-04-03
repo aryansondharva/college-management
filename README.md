@@ -104,27 +104,39 @@ college-management/
 The following diagram illustrates the data flow and communication between the system components:
 
 ```mermaid
-graph TD
-    subgraph Clients
-        A[React Mobile Client]
-        C[React Web Client]
+graph LR
+    %% Define Styles
+    classDef client fill:#e1f5fe,stroke:#01579b,stroke-width:2px,color:#01579b;
+    classDef server fill:#fff3e0,stroke:#e65100,stroke-width:2px,color:#e65100;
+    classDef database fill:#e8f5e9,stroke:#1b5e20,stroke-width:2px,color:#1b5e20;
+    classDef realtime fill:#fce4ec,stroke:#880e4f,stroke-width:2px,color:#880e4f;
+
+    subgraph "Frontend Layer"
+        A[React Mobile App]:::client
+        C[React Web Dashboard]:::client
     end
 
-    subgraph Backend Services
-        B(Node.js Express API)
-        E[Socket.io Hub]
+    subgraph "Logic Layer"
+        B(Node.js Express API):::server
+        E[Socket.io Server]:::realtime
     end
 
-    subgraph Data Layer
-        D[(Supabase PostgreSQL)]
+    subgraph "Persistence Layer"
+        D[(Supabase PostgreSQL)]:::database
     end
 
-    A -- WebSocket/HTTPS --> B
-    C -- HTTPS --> B
-    B -- SQL Queries --> D
-    B -- Events --> E
-    E -- Push Updates --> A
-    E -- Real-time Sync --> C
+    %% Connections
+    A <-->|REST / WebSocket| B
+    C <-->|REST API| B
+    B <-->|PostgreSQL Protocol| D
+    B ---|Internal Events| E
+    E -.->|Real-time Push| A
+    E -.->|Live Updates| C
+
+    %% Layout Tuning
+    style Clients fill:none,stroke:#333,stroke-dasharray: 5 5
+    style Logic fill:none,stroke:#333,stroke-dasharray: 5 5
+    style Persistence fill:none,stroke:#333,stroke-dasharray: 5 5
 ```
 
 ---
@@ -134,7 +146,7 @@ graph TD
 | Environment | Status | URL |
 | :--- | :--- | :--- |
 | **Web Production** | ![Online](https://img.shields.io/badge/Live-Online-success) | [transformers-nu.vercel.app](https://transformers-nu.vercel.app/) |
-| **API Backend** | ![Responsive](https://img.shields.io/badge/Render-Active-blue) | [Production Render URL] |
+| **API Backend** | ![Responsive](https://img.shields.io/badge/Render-Active-blue) | https://college-management-mjul.onrender.com/ |
 | **Database** | ![Connected](https://img.shields.io/badge/Supabase-Ready-green) | [PostgreSQL Server] |
 
 ---
