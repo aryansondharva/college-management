@@ -1,4 +1,4 @@
-# College Management System
+# The College Management System
 
 A comprehensive college management system with attendance tracking, student management, and reporting features.
 
