@@ -16,130 +16,10 @@ import {
   Animated
 } from 'react-native';
 import { io } from 'socket.io-client';
-import { User, Lock, GraduationCap, Home, BookOpen, Calendar, Clock, AlertCircle } from 'lucide-react-native';
+import { User, Lock, GraduationCap, Home, BookOpen, Calendar, Clock, AlertCircle, LogOut } from 'lucide-react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import client from './src/api/client';
 
-const ProfileScreen = ({ user, profileData, setProfileData, handleUpdateProfile, loading }) => (
-  <ScrollView style={styles.profileContainer} showsVerticalScrollIndicator={false}>
-     <View style={styles.profileHeader}>
-        <View style={styles.largeAvatar}>
-           <Text style={styles.largeAvatarTxt}>{user.first_name[0]}</Text>
-        </View>
-        <Text style={styles.profileTitle}>Account Settings</Text>
-        <Text style={styles.profileSub}>Keep your information up to date</Text>
-     </View>
-
-     <View style={styles.profileBody}>
-        <Text style={styles.inputLabel}>Enrollment Number (Fixed)</Text>
-        <View style={[styles.modernInputGroup, { backgroundColor: '#1A1A1A', borderColor: '#222' }]}>
-           <TextInput style={[styles.modernInput, { color: '#666' }]} value={user.enrollment_no} editable={false} />
-           <Lock color="#444" size={18} />
-        </View>
-
-        <Text style={styles.inputLabel}>Academic Role (Fixed)</Text>
-        <View style={[styles.modernInputGroup, { backgroundColor: '#1A1A1A', borderColor: '#222' }]}>
-           <TextInput style={[styles.modernInput, { color: '#666', textTransform: 'capitalize' }]} value={user.role} editable={false} />
-           <Lock color="#444" size={18} />
-        </View>
-
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-           <View style={{ width: '48%' }}>
-              <Text style={styles.inputLabel}>First Name</Text>
-              <View style={styles.modernInputGroup}>
-                 <TextInput style={styles.modernInput} value={profileData.first_name} onChangeText={(t) => setProfileData({...profileData, first_name: t})} />
-              </View>
-           </View>
-           <View style={{ width: '48%' }}>
-              <Text style={styles.inputLabel}>Last Name</Text>
-              <View style={styles.modernInputGroup}>
-                 <TextInput style={styles.modernInput} value={profileData.last_name} onChangeText={(t) => setProfileData({...profileData, last_name: t})} />
-              </View>
-           </View>
-        </View>
-
-        <Text style={styles.inputLabel}>Father's Name</Text>
-        <View style={styles.modernInputGroup}>
-           <TextInput style={styles.modernInput} value={profileData.father_name} onChangeText={(t) => setProfileData({...profileData, father_name: t})} />
-        </View>
-
-        <Text style={styles.inputLabel}>Mobile Number</Text>
-        <View style={styles.modernInputGroup}>
-           <TextInput style={styles.modernInput} value={profileData.phone} onChangeText={(t) => setProfileData({...profileData, phone: t})} keyboardType="phone-pad" />
-        </View>
-
-        <Text style={styles.inputLabel}>Email Address</Text>
-        <View style={styles.modernInputGroup}>
-           <TextInput style={styles.modernInput} value={profileData.email} onChangeText={(t) => setProfileData({...profileData, email: t})} keyboardType="email-address" autoCapitalize="none" />
-        </View>
-
-        <Text style={styles.inputLabel}>Full Address</Text>
-        <View style={styles.modernInputGroup}>
-           <TextInput style={styles.modernInput} value={profileData.address} onChangeText={(t) => setProfileData({...profileData, address: t})} />
-        </View>
-
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-           <View style={{ width: '48%' }}>
-              <Text style={styles.inputLabel}>City</Text>
-              <View style={styles.modernInputGroup}>
-                 <TextInput style={styles.modernInput} value={profileData.city} onChangeText={(t) => setProfileData({...profileData, city: t})} />
-              </View>
-           </View>
-           <View style={{ width: '48%' }}>
-              <Text style={styles.inputLabel}>Zip Code</Text>
-              <View style={styles.modernInputGroup}>
-                 <TextInput style={styles.modernInput} value={profileData.zip} onChangeText={(t) => setProfileData({...profileData, zip: t})} keyboardType="numeric" />
-              </View>
-           </View>
-        </View>
-
-        <Text style={styles.inputLabel}>Birthday (YYYY-MM-DD)</Text>
-        <View style={styles.modernInputGroup}>
-           <TextInput style={styles.modernInput} value={profileData.birthday} onChangeText={(t) => setProfileData({...profileData, birthday: t})} placeholder="1999-01-01" placeholderTextColor="#333" />
-        </View>
-
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-           <View style={{ width: '48%' }}>
-              <Text style={styles.inputLabel}>Nationality</Text>
-              <View style={styles.modernInputGroup}>
-                 <TextInput style={styles.modernInput} value={profileData.nationality} onChangeText={(t) => setProfileData({...profileData, nationality: t})} placeholder="e.g. Indian" placeholderTextColor="#333" />
-              </View>
-           </View>
-           <View style={{ width: '48%' }}>
-              <Text style={styles.inputLabel}>Religion</Text>
-              <View style={styles.modernInputGroup}>
-                 <TextInput style={styles.modernInput} value={profileData.religion} onChangeText={(t) => setProfileData({...profileData, religion: t})} placeholder="e.g. Hindu" placeholderTextColor="#333" />
-              </View>
-           </View>
-        </View>
-
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-           <View style={{ width: '48%' }}>
-              <Text style={styles.inputLabel}>Gender</Text>
-              <View style={styles.modernInputGroup}>
-                 <TextInput style={styles.modernInput} value={profileData.gender} onChangeText={(t) => setProfileData({...profileData, gender: t})} placeholder="Male/Female" placeholderTextColor="#333" />
-              </View>
-           </View>
-           <View style={{ width: '48%' }}>
-              <Text style={styles.inputLabel}>Blood Type</Text>
-              <View style={styles.modernInputGroup}>
-                 <TextInput style={styles.modernInput} value={profileData.blood_type} onChangeText={(t) => setProfileData({...profileData, blood_type: t})} placeholder="O+" placeholderTextColor="#333" />
-              </View>
-           </View>
-        </View>
-
-        <TouchableOpacity 
-          style={styles.saveBtn}
-          onPress={handleUpdateProfile}
-          disabled={loading}
-        >
-           {loading ? <ActivityIndicator color="#000" /> : <Text style={styles.saveBtnText}>Update Profile</Text>}
-        </TouchableOpacity>
-
-        <View style={{ height: 100 }} />
-     </View>
-  </ScrollView>
-);
 
 export default function App() {
   const [identity, setIdentity] = useState('');
@@ -236,6 +116,25 @@ export default function App() {
     }
   };
 
+  const handleLogout = async () => {
+    Alert.alert(
+      'Log Out',
+      'Are you sure you want to log out?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { 
+          text: 'Log Out', 
+          style: 'destructive',
+          onPress: async () => {
+            await AsyncStorage.removeItem('token');
+            setUser(null);
+            setCurrentTab('home');
+          }
+        }
+      ]
+    );
+  };
+
   const LoadingScreen = ({ message }) => {
     const pulseAnim = React.useRef(new Animated.Value(1)).current;
     const dropAnim = React.useRef(new Animated.Value(-300)).current;
@@ -325,7 +224,94 @@ export default function App() {
   if (appLoading) return <LoadingScreen message="Launching Drop..." />;
 
   if (!user) {
-    // ... LOGIN VIEW REMAINS ACCESSIBLE ...
+    return (
+      <View style={styles.loginContainer}>
+        <StatusBar barStyle="light-content" />
+        {showComingSoon && <ComingSoon />}
+        <ScrollView contentContainerStyle={{ flexGrow: 1, paddingHorizontal: 30, paddingTop: 80, paddingBottom: 40 }}>
+          
+          <View style={{ alignItems: 'center', marginBottom: 20 }}>
+             <Image 
+               source={require('./assets/logo.png')} 
+               style={{ width: 80, height: 80, objectFit: 'contain' }} 
+             />
+          </View>
+
+          <Text style={styles.loginWelcome}>Welcome to</Text>
+          <Text style={styles.loginBrand}>Drop</Text>
+          <Text style={styles.loginSubText}>Your gateway to a smart academic experience. Sign in to track your progress.</Text>
+
+          <View style={{ marginTop: 40 }}>
+             {error ? <Text style={styles.errorText}>{error}</Text> : null}
+             
+             <View style={styles.modernInputGroup}>
+                <TextInput 
+                  style={styles.modernInput}
+                  placeholder="Username or Enrollment"
+                  placeholderTextColor="#444"
+                  value={identity}
+                  onChangeText={setIdentity}
+                  autoCapitalize="none"
+                />
+                <User color="#444" size={20} />
+             </View>
+
+             <View style={styles.modernInputGroup}>
+                <TextInput 
+                  style={styles.modernInput}
+                  placeholder="Password"
+                  placeholderTextColor="#444"
+                  value={password}
+                  onChangeText={setPassword}
+                  secureTextEntry
+                />
+                <Lock color="#444" size={20} />
+             </View>
+
+             <View style={styles.loginActionsRow}>
+                <TouchableOpacity 
+                   style={styles.remGroup}
+                   onPress={() => setShowComingSoon(true)}
+                >
+                   <View style={styles.miniCheck} />
+                   <Text style={styles.remText}>Remember me</Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => setShowComingSoon(true)}>
+                   <Text style={styles.remText}>Forgot Password?</Text>
+                </TouchableOpacity>
+             </View>
+
+             <TouchableOpacity 
+               style={styles.modernLoginBtn}
+               onPress={handleLogin}
+               disabled={loading}
+             >
+                <Text style={styles.loginBtnTxtFinal}>Sign In</Text>
+             </TouchableOpacity>
+
+             {loading && <LoadingScreen message="Verifying Identity..." />}
+
+             <View style={styles.socialHeaderRow}>
+                <Text style={styles.socialText}>Or sign in with</Text>
+                <View style={styles.socialIconsRow}>
+                   <TouchableOpacity style={styles.socialBox} onPress={() => setShowComingSoon(true)}><User color="#444" size={20} /></TouchableOpacity>
+                   <TouchableOpacity style={styles.socialBox} onPress={() => setShowComingSoon(true)}><User color="#444" size={20} /></TouchableOpacity>
+                   <TouchableOpacity style={styles.socialBox} onPress={() => setShowComingSoon(true)}><User color="#444" size={20} /></TouchableOpacity>
+                </View>
+             </View>
+
+             <TouchableOpacity style={{ marginTop: 40, alignItems: 'center' }} onPress={() => setShowComingSoon(true)}>
+                <Text style={styles.footerLinkText}>Don't have an account? <Text style={{ color: '#FFF' }}>Sign Up</Text></Text>
+             </TouchableOpacity>
+
+             <View style={{ marginTop: 60, alignItems: 'center' }}>
+                <Text style={styles.policyText}>By signing in, you agree to our Privacy</Text>
+                <Text style={styles.policyText}>Policy and Terms of Service.</Text>
+             </View>
+          </View>
+        </ScrollView>
+      </View>
+    );
   }
 
   const classesNeeded = attendance ? Math.max(0, Math.ceil((0.75 * attendance.total - attendance.attended) / 0.25)) : 0;
@@ -344,10 +330,10 @@ export default function App() {
               <Text style={styles.userName}>{user.first_name} {user.last_name}</Text>
               <View style={styles.headerRight}>
                 <TouchableOpacity 
-                  style={styles.avatar}
-                  onPress={() => setCurrentTab('profile')}
+                   style={styles.avatar}
+                   onPress={handleLogout}
                 >
-                    <Text style={styles.avatarText}>{user.first_name[0]}</Text>
+                    <LogOut size={20} color="#FFF" />
                 </TouchableOpacity>
               </View>
 
@@ -401,55 +387,195 @@ export default function App() {
         </View>
       )}
 
-      {currentTab === 'profile' && (
-        <ProfileScreen 
-           user={user} 
-           profileData={profileData} 
-           setProfileData={setProfileData} 
-           handleUpdateProfile={handleUpdateProfile} 
-           loading={loading} 
-        />
-      )}
+        {currentTab === 'profile' && (
+          <ProfileScreen 
+             user={user} 
+             profileData={profileData} 
+             setProfileData={setProfileData} 
+             handleUpdateProfile={handleUpdateProfile} 
+             loading={loading} 
+          />
+        )}
 
-      {currentTab === 'schedule' && <ComingSoon />}
-      {currentTab === 'syllabus' && <ComingSoon />}
+        {currentTab === 'schedule' && <ComingSoon />}
+        {currentTab === 'syllabus' && <ComingSoon />}
 
-      {/* BOTTOM NAV */}
-      <View style={styles.navBar}>
-         <TouchableOpacity 
-           style={styles.navTab}
-           onPress={() => setCurrentTab('home')}
-         >
-            <Home size={22} color={currentTab === 'home' ? "#121212" : "#BBB"} />
-            <Text style={[styles.navTxt, { color: currentTab === 'home' ? '#121212' : '#BBB' }]}>Home</Text>
-            {currentTab === 'home' && <View style={styles.navDot} />}
-         </TouchableOpacity>
-         <TouchableOpacity 
-           style={styles.navTab}
-           onPress={() => setCurrentTab('schedule')}
-         >
-            <Calendar size={22} color={currentTab === 'schedule' ? "#121212" : "#BBB"} />
-            <Text style={[styles.navTxt, { color: currentTab === 'schedule' ? '#121212' : '#BBB' }]}>Schedule</Text>
-            {currentTab === 'schedule' && <View style={styles.navDot} />}
-         </TouchableOpacity>
-         <TouchableOpacity 
-           style={styles.navTab}
-           onPress={() => setCurrentTab('syllabus')}
-         >
-            <BookOpen size={22} color={currentTab === 'syllabus' ? "#121212" : "#BBB"} />
-            <Text style={[styles.navTxt, { color: currentTab === 'syllabus' ? '#121212' : '#BBB' }]}>Syllabus</Text>
-            {currentTab === 'syllabus' && <View style={styles.navDot} />}
-         </TouchableOpacity>
-         <TouchableOpacity 
-           style={styles.navTab}
-           onPress={() => setCurrentTab('profile')}
-         >
-            <User size={22} color={currentTab === 'profile' ? "#121212" : "#BBB"} />
-            <Text style={[styles.navTxt, { color: currentTab === 'profile' ? '#121212' : '#BBB' }]}>Profile</Text>
-            {currentTab === 'profile' && <View style={styles.navDot} />}
-         </TouchableOpacity>
+        {/* BOTTOM NAV */}
+        <View style={styles.navBar}>
+           <TouchableOpacity 
+             style={styles.navTab}
+             onPress={() => setCurrentTab('home')}
+           >
+              <Home size={22} color={currentTab === 'home' ? "#121212" : "#BBB"} />
+              <Text style={[styles.navTxt, { color: currentTab === 'home' ? '#121212' : '#BBB' }]}>Home</Text>
+              {currentTab === 'home' && <View style={styles.navDot} />}
+           </TouchableOpacity>
+           <TouchableOpacity 
+             style={styles.navTab}
+             onPress={() => setCurrentTab('schedule')}
+           >
+              <Calendar size={22} color={currentTab === 'schedule' ? "#121212" : "#BBB"} />
+              <Text style={[styles.navTxt, { color: currentTab === 'schedule' ? '#121212' : '#BBB' }]}>Schedule</Text>
+              {currentTab === 'schedule' && <View style={styles.navDot} />}
+           </TouchableOpacity>
+           <TouchableOpacity 
+             style={styles.navTab}
+             onPress={() => setCurrentTab('syllabus')}
+           >
+              <BookOpen size={22} color={currentTab === 'syllabus' ? "#121212" : "#BBB"} />
+              <Text style={[styles.navTxt, { color: currentTab === 'syllabus' ? '#121212' : '#BBB' }]}>Syllabus</Text>
+              {currentTab === 'syllabus' && <View style={styles.navDot} />}
+           </TouchableOpacity>
+           <TouchableOpacity 
+             style={styles.navTab}
+             onPress={() => setCurrentTab('profile')}
+           >
+              <User size={22} color={currentTab === 'profile' ? "#121212" : "#BBB"} />
+              <Text style={[styles.navTxt, { color: currentTab === 'profile' ? '#121212' : '#BBB' }]}>Profile</Text>
+              {currentTab === 'profile' && <View style={styles.navDot} />}
+           </TouchableOpacity>
+        </View>
       </View>
-    </View>
+    );
+}
+
+function ProfileScreen({ user, profileData, setProfileData, handleUpdateProfile, loading }) {
+  const enrollment_no = user?.enrollment_no || 'NOT ASSIGNED';
+  const role = user?.role || 'Student';
+
+  return (
+    <ScrollView style={styles.profileContainer} showsVerticalScrollIndicator={false}>
+       <View style={styles.profileHeader}>
+          <View style={styles.largeAvatar}>
+             <Text style={styles.largeAvatarTxt}>{user?.first_name?.[0] || '?'}</Text>
+          </View>
+          <Text style={styles.profileTitle}>Account Settings</Text>
+          <Text style={styles.profileSub}>Keep your information up to date</Text>
+       </View>
+
+       <View style={styles.profileBody}>
+          <Text style={styles.inputLabel}>Enrollment Number (Fixed)</Text>
+          <View style={[styles.modernInputGroup, { backgroundColor: '#1A1A1A', borderColor: '#222' }]}>
+             <TextInput 
+               style={[styles.modernInput, { color: '#FFF' }]} 
+               value={enrollment_no} 
+               editable={false} 
+             />
+             <Lock color="#444" size={18} />
+          </View>
+
+          <Text style={styles.inputLabel}>Academic Role (Fixed)</Text>
+          <View style={[styles.modernInputGroup, { backgroundColor: '#1A1A1A', borderColor: '#222' }]}>
+             <TextInput 
+               style={[styles.modernInput, { color: '#FFF', textTransform: 'capitalize' }]} 
+               value={role} 
+               editable={false} 
+             />
+             <Lock color="#444" size={18} />
+          </View>
+
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+             <View style={{ width: '48%' }}>
+                <Text style={styles.inputLabel}>First Name</Text>
+                <View style={styles.modernInputGroup}>
+                   <TextInput style={styles.modernInput} value={profileData.first_name} onChangeText={(t) => setProfileData({...profileData, first_name: t})} />
+                </View>
+             </View>
+             <View style={{ width: '48%' }}>
+                <Text style={styles.inputLabel}>Last Name</Text>
+                <View style={styles.modernInputGroup}>
+                   <TextInput style={styles.modernInput} value={profileData.last_name} onChangeText={(t) => setProfileData({...profileData, last_name: t})} />
+                </View>
+             </View>
+          </View>
+
+          <Text style={styles.inputLabel}>Father's Name</Text>
+          <View style={styles.modernInputGroup}>
+             <TextInput 
+                style={styles.modernInput} 
+                value={profileData.father_name} 
+                onChangeText={(t) => setProfileData({...profileData, father_name: t})} 
+                placeholder="Enter Father's Name"
+                placeholderTextColor="#333"
+             />
+          </View>
+
+          <Text style={styles.inputLabel}>Mobile Number</Text>
+          <View style={styles.modernInputGroup}>
+             <TextInput style={styles.modernInput} value={profileData.phone} onChangeText={(t) => setProfileData({...profileData, phone: t})} keyboardType="phone-pad" />
+          </View>
+
+          <Text style={styles.inputLabel}>Email Address</Text>
+          <View style={styles.modernInputGroup}>
+             <TextInput style={styles.modernInput} value={profileData.email} onChangeText={(t) => setProfileData({...profileData, email: t})} keyboardType="email-address" autoCapitalize="none" />
+          </View>
+
+          <Text style={styles.inputLabel}>Full Address</Text>
+          <View style={styles.modernInputGroup}>
+             <TextInput style={styles.modernInput} value={profileData.address} onChangeText={(t) => setProfileData({...profileData, address: t})} />
+          </View>
+
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+             <View style={{ width: '48%' }}>
+                <Text style={styles.inputLabel}>City</Text>
+                <View style={styles.modernInputGroup}>
+                   <TextInput style={styles.modernInput} value={profileData.city} onChangeText={(t) => setProfileData({...profileData, city: t})} />
+                </View>
+             </View>
+             <View style={{ width: '48%' }}>
+                <Text style={styles.inputLabel}>Zip Code</Text>
+                <View style={styles.modernInputGroup}>
+                   <TextInput style={styles.modernInput} value={profileData.zip} onChangeText={(t) => setProfileData({...profileData, zip: t})} keyboardType="numeric" />
+                </View>
+             </View>
+          </View>
+
+          <Text style={styles.inputLabel}>Birthday (YYYY-MM-DD)</Text>
+          <View style={styles.modernInputGroup}>
+             <TextInput style={styles.modernInput} value={profileData.birthday} onChangeText={(t) => setProfileData({...profileData, birthday: t})} placeholder="1999-01-01" placeholderTextColor="#333" />
+          </View>
+
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+             <View style={{ width: '48%' }}>
+                <Text style={styles.inputLabel}>Nationality</Text>
+                <View style={styles.modernInputGroup}>
+                   <TextInput style={styles.modernInput} value={profileData.nationality} onChangeText={(t) => setProfileData({...profileData, nationality: t})} placeholder="e.g. Indian" placeholderTextColor="#333" />
+                </View>
+             </View>
+             <View style={{ width: '48%' }}>
+                <Text style={styles.inputLabel}>Religion</Text>
+                <View style={styles.modernInputGroup}>
+                   <TextInput style={styles.modernInput} value={profileData.religion} onChangeText={(t) => setProfileData({...profileData, religion: t})} placeholder="e.g. Hindu" placeholderTextColor="#333" />
+                </View>
+             </View>
+          </View>
+
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+             <View style={{ width: '48%' }}>
+                <Text style={styles.inputLabel}>Gender</Text>
+                <View style={styles.modernInputGroup}>
+                   <TextInput style={styles.modernInput} value={profileData.gender} onChangeText={(t) => setProfileData({...profileData, gender: t})} placeholder="Male/Female" placeholderTextColor="#333" />
+                </View>
+             </View>
+             <View style={{ width: '48%' }}>
+                <Text style={styles.inputLabel}>Blood Type</Text>
+                <View style={styles.modernInputGroup}>
+                   <TextInput style={styles.modernInput} value={profileData.blood_type} onChangeText={(t) => setProfileData({...profileData, blood_type: t})} placeholder="O+" placeholderTextColor="#333" />
+                </View>
+             </View>
+          </View>
+
+          <TouchableOpacity 
+            style={styles.saveBtn}
+            onPress={handleUpdateProfile}
+            disabled={loading}
+          >
+             {loading ? <ActivityIndicator color="#000" /> : <Text style={styles.saveBtnText}>Update Profile</Text>}
+          </TouchableOpacity>
+
+          <View style={{ height: 100 }} />
+       </View>
+    </ScrollView>
   );
 }
 
