@@ -1,24 +1,16 @@
 {
   "version": 2,
-  "name": "college-management-frontend",
-  "builds": [
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist",
+  "installCommand": "npm install",
+  "framework": "vite",
+  "rewrites": [
     {
-      "src": "package.json",
-      "use": "@vercel/static",
-      "config": {
-        "distDir": "dist"
-      }
-    }
-  ],
-  "routes": [
-    {
-      "src": "dist",
-      "dest": "/"
+      "source": "/(.*)",
+      "destination": "/index.html"
     }
   ],
   "env": {
     "VITE_API_URL": "https://college-management-mjul.onrender.com/api"
-  },
-  "installCommand": "npm install",
-  "buildCommand": "npm run build"
+  }
 }
