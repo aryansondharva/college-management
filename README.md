@@ -1,188 +1,100 @@
-# The College Management System
+# 💧 Drop | Modern College Management System
 
-A comprehensive college management system with attendance tracking, student management, and reporting features.
+**Drop** is a high-fidelity, minimalist educational management platform designed for the modern era. It streamlines academic workflows by connecting students, teachers, and administrators in a unified, real-time ecosystem.
 
-## Features
+🚀 **Live Web:** [https://transformers-nu.vercel.app/](https://transformers-nu.vercel.app/)  
+📱 **Mobile App:** Expo/React Native (Connected to Live Production)
 
-- 🎓 **Student Management**: Add, edit, and manage student records
-- 📊 **Attendance Tracking**: Daily attendance with comprehensive reporting
-- 📚 **Course Management**: Manage courses and subjects
-- 👥 **Class & Section Management**: Organize students by classes and sections
-- 📅 **Session Management**: Handle academic sessions
-- 📈 **Dashboard**: Overview with statistics and analytics
-- 🔐 **Authentication**: Secure login system with role-based access
+---
 
-## Tech Stack
+## ✨ Key Features
 
-### Frontend
-- **React 19** with modern hooks
-- **Bootstrap 5** for responsive UI
-- **Vite** for fast development and building
-- **Axios** for API communication
-- **React Router** for navigation
-- **Recharts** for data visualization
+### 🎓 For Students
+- **Real-time Attendance**: Track cumulative presence and target percentages (75%).
+- **Academic Portal**: Access curriculum, schedules, and digital assignments.
+- **Mobile Companion**: Receive instant notifications when attendance is marked using Socket.io.
 
-### Backend
-- **Node.js** with Express.js
-- **PostgreSQL** for database
-- **JWT** for authentication
-- **Socket.io** for real-time features
-- **Multer** for file uploads
-- **bcrypt** for password hashing
+### 👩‍🏫 For Teachers
+- **Efficient Grading**: Manage marks and academic performance reports.
+- **Roll-Call System**: Sorted enrollment-based attendance marking.
+- **Task Management**: Create assignments and track student submissions.
 
-## Project Structure
+### 🛡️ For Admins
+- **Global Operations**: Full control over student/teacher enrollment and permissions.
+- **Detailed Analytics**: Real-time summary charts for attendance and activity.
+- **Management Suite**: Configure sessions, classes, sections, and courses.
 
-```
-college-management/
-├── client/                 # React frontend
-│   ├── src/
-│   │   ├── components/
-│   │   ├── pages/
-│   │   ├── api.js
-│   │   └── ...
-│   ├── public/
-│   ├── package.json
-│   └── vite.config.js
-├── server/                 # Node.js backend
-│   ├── src/
-│   │   ├── routes/
-│   │   ├── middleware/
-│   │   ├── config/
-│   │   └── ...
-│   ├── package.json
-│   └── ...
-├── DEPLOYMENT.md          # Deployment guide
-└── README.md
-```
+---
 
-## Getting Started
+## 🛠️ Tech Stack
+
+### Frontend & UI
+- **React 19** + **Vite** (Web)
+- **React Native** + **Expo** (Mobile)
+- **Bootstrap 5** & **Lucide icons** (Clean, minimalist aesthetic)
+- **Recharts** (Visual analytics)
+
+### Backend & Real-time
+- **Node.js** & **Express**
+- **Socket.io** (Production-ready real-time updates)
+- **JWT** (Payload-based authentication)
+
+### Infrastructure
+- **Supabase** (PostgreSQL with SSL & Supavisor pooling)
+- **Render** (API Backend)
+- **Vercel** (Frontend Deployment)
+
+---
+
+## 🚀 Getting Started
 
 ### Prerequisites
-- Node.js 16+
-- PostgreSQL 12+
-- npm or yarn
+- Node.js 18+
+- Supabase Account (for PostgreSQL)
+- Expo Go (to run mobile on physical devices)
 
-### Installation
+### Setup Instructions
 
-1. **Clone the repository**
+1. **Clone & Install**
 ```bash
-git clone https://github.com/yourusername/college-management.git
-cd college-management
+git clone https://github.com/aryansondharva/College-Sys.git
+cd College-Sys
+npm install # Install in /client, /server, and /mobile
 ```
 
-2. **Install dependencies**
+2. **Environment Configuration**
+Update `.env` files in `/server` and `/client`:
 ```bash
-# Frontend
-cd client
-npm install
+# /server/.env
+DATABASE_URL=postgresql://postgres.yourproject:pass@pooler.supabase.com:5432/postgres
+JWT_SECRET=your_secret
+NODE_ENV=production
 
-# Backend
+# /client/.env
+VITE_API_URL=https://your-render-url.onrender.com/api
+```
+
+3. **Database Migration**
+Sync your local database to Supabase production:
+```bash
 cd server
-npm install
+npm run sync:supabase
 ```
 
-3. **Set up environment variables**
-```bash
-# Frontend (.env)
-VITE_API_URL=http://localhost:5000/api
+---
 
-# Backend (.env)
-NODE_ENV=development
-DATABASE_URL=postgresql://username:password@localhost:5432/college_db
-JWT_SECRET=your-secret-key
-PORT=5000
-```
+## 🔄 Synchronization Scripts
+In the `/server` directory, we have included special tools for production management:
+- `npm run sync:supabase`: Automatically migrates local schema and data to Supabase.
+- `npm run sync:auth`: Migrates `public.users` table into the Supabase Auth Dashboard.
+- `node reset_supabase_passwords.js`: Synchronizes all production passwords to defaults (`student123`, `teacher123`, `admin123`).
 
-4. **Run the application**
-```bash
-# Backend (Terminal 1)
-cd server
-npm run dev
+## 📡 API Endpoints
+- `GET /api/debug-db`: Health check for database connectivity.
+- `POST /api/auth/login`: Secure cross-identity login (Email or ID).
+- `GET /api/attendance/student-summary`: Real-time data for the mobile app.
 
-# Frontend (Terminal 2)
-cd client
-npm run dev
-```
+---
 
-## Features in Detail
-
-### Attendance System
-- ✅ Daily attendance marking
-- ✅ Monthly/Weekly reports
-- ✅ Subject-wise attendance tracking
-- ✅ Export functionality
-- ✅ Real-time status updates
-- ✅ Enrollment number sorting
-
-### Student Management
-- ✅ CRUD operations for students
-- ✅ Enrollment number management
-- ✅ Class and section assignment
-- ✅ Search and filtering
-
-### Reporting
-- ✅ Comprehensive attendance reports
-- ✅ Statistical analysis
-- ✅ Export to various formats
-- ✅ Visual charts and graphs
-
-## API Endpoints
-
-### Authentication
-- `POST /api/auth/login` - User login
-- `GET /api/auth/me` - Get current user
-
-### Students
-- `GET /api/users/students` - Get students list (sorted by enrollment number)
-- `POST /api/users/student` - Add new student
-- `PUT /api/users/student/:id` - Update student
-- `DELETE /api/users/student/:id` - Delete student
-
-### Attendance
-- `GET /api/attendance` - Get attendance records
-- `POST /api/attendance` - Mark attendance
-- `GET /api/attendance/report` - Monthly reports
-- `GET /api/attendance/daily-report` - Daily reports
-
-### Academics
-- `GET /api/sessions` - Get academic sessions
-- `GET /api/classes` - Get classes
-- `GET /api/sections` - Get sections
-- `GET /api/courses` - Get courses
-
-## Database Schema
-
-Key tables:
-- `users` - User accounts and student info
-- `attendances` - Attendance records
-- `student_academic_infos` - Student-class assignments
-- `school_sessions` - Academic sessions
-- `school_classes` - Class information
-- `sections` - Section details
-- `courses` - Course/subject details
-
-## Deployment
-
-See [DEPLOYMENT.md](./DEPLOYMENT.md) for detailed deployment instructions.
-
-### Development URLs
-- Frontend: http://localhost:5173
-- Backend: http://localhost:5000
-
-### Production URLs
-- Frontend: https://your-app.vercel.app
-- Backend: https://your-backend-url.onrender.com
-
-## Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Add tests if applicable
-5. Submit a pull request
-
-## License
-
-This project is licensed under the MIT License.
-
-
+## 📄 License
+This project is licensed under the MIT License. 
