@@ -44,28 +44,36 @@ router.post('/', authenticate, async (req, res) => {
     // attendance_data: [{student_id: 1, present: true}, ...]
 
     if (req.body.is_bulk_subjects) {
-      // attendance_data: [{student_id: 1, subjects: {course_id_1: true, course_id_2: false, ...}}, ...]
-      const queries = [];
+      // 1. Prepare values for bulk insert
+      const values = [];
+      const placeholders = [];
+      let i = 1;
+
       attendance_data.forEach(item => {
         Object.entries(item.subjects).forEach(([c_id, present]) => {
-          queries.push(
-            db.query(
-              `INSERT INTO attendances (student_id, course_id, section_id, class_id, session_id, attendance_date, present)
-               VALUES ($1, $2, $3, $4, $5, $6, $7)
-               ON CONFLICT (student_id, attendance_date, COALESCE(course_id, 0)) DO UPDATE SET present = $7, updated_at = NOW()`,
-              [item.student_id, c_id === '0' ? null : c_id, section_id, class_id, session_id, date, present]
-            )
-          );
+          const courseId = c_id === '0' || c_id === 'null' ? null : parseInt(c_id);
+          placeholders.push(`($${i++}, $${i++}, $${i++}, $${i++}, $${i++}, $${i++}, $${i++})`);
+          values.push(item.student_id, courseId, section_id, class_id, session_id, date, present);
         });
       });
-      await Promise.all(queries);
+
+      if (values.length > 0) {
+        const query = `
+          INSERT INTO attendances (student_id, course_id, section_id, class_id, session_id, attendance_date, present)
+          VALUES ${placeholders.join(', ')}
+          ON CONFLICT (student_id, attendance_date, COALESCE(course_id, 0)) 
+          DO UPDATE SET present = EXCLUDED.present, updated_at = NOW()
+        `;
+        await db.query(query, values);
+      }
     } else {
       const queries = attendance_data.map(item => {
+        const courseId = course_id === '0' || course_id === 'null' ? null : parseInt(course_id);
         return db.query(
           `INSERT INTO attendances (student_id, course_id, section_id, class_id, session_id, attendance_date, present)
            VALUES ($1, $2, $3, $4, $5, $6, $7)
            ON CONFLICT (student_id, attendance_date, COALESCE(course_id, 0)) DO UPDATE SET present = $7, updated_at = NOW()`,
-          [item.student_id, course_id || null, section_id, class_id, session_id, date, item.present]
+          [item.student_id, courseId, section_id, class_id, session_id, date, item.present]
         );
       });
       await Promise.all(queries);
