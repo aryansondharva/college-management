@@ -345,65 +345,92 @@ export default function App() {
 
             <View style={styles.statRow}>
               <TouchableOpacity style={styles.statBox} onPress={() => setCurrentTab('attendance')}>
-                <Text style={styles.statValue}>{attendance ? attendance.attended : '0'}</Text>
+                <Text style={styles.statValue}>
+                  {detailedAttendance.overall.reduce((s, sub) => s + sub.attended, 0)}
+                </Text>
                 <Text style={styles.statLabel}>Attended</Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.statBox} onPress={() => setCurrentTab('attendance')}>
-                <Text style={styles.statValue}>{attendance ? attendance.total : '0'}</Text>
+                <Text style={styles.statValue}>
+                  {detailedAttendance.overall.reduce((s, sub) => s + sub.total, 0)}
+                </Text>
                 <Text style={styles.statLabel}>Total</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.statBox} onPress={() => setShowComingSoon(true)}>
-                <Text style={styles.statValue}>3</Text>
-                <Text style={styles.statLabel}>Tasks</Text>
+              <TouchableOpacity style={styles.statBox} onPress={() => setCurrentTab('attendance')}>
+                {(() => {
+                  const tot = detailedAttendance.overall.reduce((s, sub) => s + sub.total, 0);
+                  const att = detailedAttendance.overall.reduce((s, sub) => s + sub.attended, 0);
+                  const p = tot > 0 ? Math.round((att / tot) * 100) : 0;
+                  return <Text style={[styles.statValue, { color: p >= 75 ? '#2ecc71' : '#FF5A5F' }]}>{p}%</Text>;
+                })()}
+                <Text style={styles.statLabel}>Overall</Text>
               </TouchableOpacity>
             </View>
           </View>
 
           <ScrollView style={styles.main} showsVerticalScrollIndicator={false}>
-            <Text style={styles.sectionHeader}>Overview</Text>
+            <Text style={styles.sectionHeader}>Semester Attendance Overview</Text>
+
+            {/* OVERALL SEM CARD */}
             <TouchableOpacity style={styles.card} onPress={() => setCurrentTab('attendance')}>
               <View style={styles.cardTitleRow}>
                 <View>
                   <Text style={styles.cardLabel}>Cumulative Presence</Text>
-                  <Text style={styles.cardLargeText}>{attendance ? `${attendance.percentage}%` : '--%'}</Text>
+                  {(() => {
+                    const tot = detailedAttendance.overall.reduce((s, sub) => s + sub.total, 0);
+                    const att = detailedAttendance.overall.reduce((s, sub) => s + sub.attended, 0);
+                    const p = tot > 0 ? Math.round((att / tot) * 100) : 0;
+                    return <Text style={styles.cardLargeText}>{p}%</Text>;
+                  })()}
                 </View>
                 <View><Text style={styles.targetLabel}>Target 75%</Text></View>
               </View>
-              <View style={styles.progressContainer}>
-                <View style={[styles.progressBar, { width: attendance ? `${attendance.percentage}%` : '0%' }]} />
-              </View>
-              {classesNeeded > 0 && (
-                <View style={styles.smallAlert}>
-                  <AlertCircle size={14} color="#AAA" />
-                  <Text style={styles.smallAlertText}>Need {classesNeeded} more classes to reach 75%</Text>
-                </View>
-              )}
+              {(() => {
+                const tot = detailedAttendance.overall.reduce((s, sub) => s + sub.total, 0);
+                const att = detailedAttendance.overall.reduce((s, sub) => s + sub.attended, 0);
+                const p = tot > 0 ? Math.round((att / tot) * 100) : 0;
+                const needed = Math.max(0, Math.ceil((0.75 * tot - att) / 0.25));
+                return (
+                  <>
+                    <View style={styles.progressContainer}>
+                      <View style={[styles.progressBar, { width: `${p}%`, backgroundColor: p >= 75 ? '#2ecc71' : '#FF5A5F' }]} />
+                    </View>
+                    {needed > 0 && (
+                      <View style={styles.smallAlert}>
+                        <AlertCircle size={14} color="#AAA" />
+                        <Text style={styles.smallAlertText}>Need {needed} more classes to reach 75%</Text>
+                      </View>
+                    )}
+                  </>
+                );
+              })()}
             </TouchableOpacity>
 
             <Text style={styles.sectionHeader}>Subject-wise Attendance</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 10 }}>
-              {detailedAttendance.overall.map((sub, idx) => {
-                const p = sub.total > 0 ? Math.round((sub.attended / sub.total) * 100) : 0;
-                return (
-                  <View key={sub.course_id} style={styles.subjectMiniCard}>
-                    <Text style={styles.subMiniCode}>{sub.subject_code}</Text>
-                    <Text style={styles.subMiniTitle} numberOfLines={1}>{sub.subject_name}</Text>
-                    <Text style={[styles.subMiniPercent, { color: p < 75 ? '#FF5A5F' : '#121212' }]}>{p}%</Text>
-                    <View style={styles.miniProgBg}><View style={[styles.miniProgFill, { width: `${p}%`, backgroundColor: p < 75 ? '#FF5A5F' : '#121212' }]} /></View>
+            {detailedAttendance.overall.map((sub) => {
+              const p = sub.total > 0 ? Math.round((sub.attended / sub.total) * 100) : 0;
+              return (
+                <View key={sub.course_id} style={[styles.monthlyRow, { marginBottom: 10, borderRadius: 16, borderWidth: 1, borderColor: '#F0F0F0', padding: 16 }]}>
+                  <View style={styles.monthlyInfo}>
+                    <Text style={[styles.monthlySub, { fontSize: 13 }]} numberOfLines={1}>{sub.subject_name}</Text>
+                    <Text style={styles.monthlyDate}>{sub.subject_code}</Text>
+                    <View style={{ height: 4, backgroundColor: '#F0F0F0', borderRadius: 2, marginTop: 8, width: '100%' }}>
+                      <View style={{ height: 4, width: `${p}%`, backgroundColor: p >= 75 ? '#2ecc71' : '#FF5A5F', borderRadius: 2 }} />
+                    </View>
                   </View>
-                );
-              })}
-            </ScrollView>
-
-            <Text style={styles.sectionHeader}>Upcoming</Text>
-            <TouchableOpacity style={styles.pCard} onPress={() => setShowComingSoon(true)}>
-              <View style={[styles.pDot, styles.pDotActive]} />
-              <View style={styles.pInfo}>
-                <Text style={styles.pTitle}>System Analysis & Design</Text>
-                <Text style={styles.pSub}>Room 402</Text>
+                  <View style={[styles.monthlyStats, { minWidth: 70, alignItems: 'flex-end' }]}>
+                    <Text style={styles.monthlyRatio}>{sub.attended}/{sub.total}</Text>
+                    <Text style={[styles.monthlyPerc, { color: p >= 75 ? '#2ecc71' : '#FF5A5F' }]}>{p}%</Text>
+                  </View>
+                </View>
+              );
+            })}
+            {detailedAttendance.overall.length === 0 && (
+              <View style={{ padding: 30, alignItems: 'center' }}>
+                <Text style={{ color: '#CCC', fontWeight: '700', fontSize: 13 }}>No attendance data found.</Text>
               </View>
-              <View style={styles.pRight}><Text style={styles.pMeta}>10:30 AM · Tomorrow</Text></View>
-            </TouchableOpacity>
+            )}
+
             <View style={{ height: 20 }} />
           </ScrollView>
         </View>
@@ -413,51 +440,85 @@ export default function App() {
         <View style={{ flex: 1 }}>
           <View style={[styles.header, { paddingBottom: 20 }]}>
             <TouchableOpacity onPress={() => setCurrentTab('home')} style={{ marginBottom: 15 }}>
-              <Text style={{ color: '#666', fontWeight: '800' }}>← Back to Home</Text>
+              <Text style={{ color: '#666', fontWeight: '800' }}>← Back</Text>
             </TouchableOpacity>
             <Text style={styles.userName}>Attendance Report</Text>
-            <Text style={styles.welcome}>Overall semester & monthly breakdown</Text>
+            {(() => {
+              const tot = detailedAttendance.overall.reduce((s, sub) => s + sub.total, 0);
+              const att = detailedAttendance.overall.reduce((s, sub) => s + sub.attended, 0);
+              const p = tot > 0 ? Math.round((att / tot) * 100) : 0;
+              return (
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 8 }}>
+                  <Text style={styles.welcome}>{att} / {tot} classes attended  </Text>
+                  <View style={{ backgroundColor: p >= 75 ? '#2ecc7120' : '#FF5A5F20', paddingHorizontal: 10, paddingVertical: 3, borderRadius: 20 }}>
+                    <Text style={{ color: p >= 75 ? '#2ecc71' : '#FF5A5F', fontWeight: '900', fontSize: 14 }}>{p}%</Text>
+                  </View>
+                </View>
+              );
+            })()}
           </View>
+
           <ScrollView style={styles.main} showsVerticalScrollIndicator={false}>
-            {/* OVERALL SEMESTER SUMMARY */}
+            {/* OVERALL SEM SUMMARY — matches admin report */}
             <Text style={styles.sectionHeader}>Overall Semester Aggregate</Text>
-            {detailedAttendance.overall.map((sub, idx) => {
+            {detailedAttendance.overall.map((sub) => {
               const p = sub.total > 0 ? Math.round((sub.attended / sub.total) * 100) : 0;
               return (
-                <View key={`overall-${sub.course_id}`} style={styles.monthlyRow}>
+                <View key={`overall-${sub.course_id}`} style={[styles.monthlyRow, { marginBottom: 10, borderRadius: 16, borderWidth: 1, borderColor: p >= 75 ? '#e6f7ec' : '#fbe9e9', padding: 16 }]}>
                   <View style={styles.monthlyInfo}>
-                    <Text style={styles.monthlySub}>{sub.subject_name}</Text>
-                    <Text style={styles.monthlyDate}>{sub.subject_code} · Total Semester</Text>
+                    <Text style={[styles.monthlySub, { fontSize: 13 }]} numberOfLines={2}>{sub.subject_name}</Text>
+                    <Text style={styles.monthlyDate}>{sub.subject_code}</Text>
+                    <View style={{ height: 4, backgroundColor: '#F0F0F0', borderRadius: 2, marginTop: 8, width: '100%' }}>
+                      <View style={{ height: 4, width: `${p}%`, backgroundColor: p >= 75 ? '#2ecc71' : '#FF5A5F', borderRadius: 2 }} />
+                    </View>
                   </View>
-                  <View style={styles.monthlyStats}>
+                  <View style={[styles.monthlyStats, { minWidth: 70, alignItems: 'flex-end' }]}>
                     <Text style={styles.monthlyRatio}>{sub.attended} / {sub.total}</Text>
-                    <Text style={[styles.monthlyPerc, { color: p < 75 ? '#FF5A5F' : '#2ecc71' }]}>
-                      {p}%
-                    </Text>
+                    <Text style={[styles.monthlyPerc, { color: p >= 75 ? '#2ecc71' : '#FF5A5F' }]}>{p}%</Text>
                   </View>
                 </View>
               );
             })}
+
+            {/* OVERALL TOTAL ROW */}
+            {detailedAttendance.overall.length > 0 && (() => {
+              const tot = detailedAttendance.overall.reduce((s, sub) => s + sub.total, 0);
+              const att = detailedAttendance.overall.reduce((s, sub) => s + sub.attended, 0);
+              const p = tot > 0 ? Math.round((att / tot) * 100) : 0;
+              return (
+                <View style={{ backgroundColor: p >= 75 ? '#e6f7ec' : '#fbe9e9', borderRadius: 16, padding: 18, marginBottom: 10, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <View>
+                    <Text style={{ fontSize: 11, fontWeight: '900', color: '#AAA', textTransform: 'uppercase', letterSpacing: 1 }}>Overall Sem Total</Text>
+                    <Text style={{ fontSize: 22, fontWeight: '900', color: '#121212', marginTop: 4 }}>{att} / {tot}</Text>
+                  </View>
+                  <View style={{ backgroundColor: p >= 75 ? '#2ecc71' : '#FF5A5F', borderRadius: 12, paddingHorizontal: 16, paddingVertical: 10 }}>
+                    <Text style={{ color: '#FFF', fontSize: 22, fontWeight: '900' }}>{p}%</Text>
+                  </View>
+                </View>
+              );
+            })()}
+
             {detailedAttendance.overall.length === 0 && (
-              <Text style={{ textAlign: 'center', color: '#BBB', marginTop: 10, marginBottom: 20, fontWeight: '700' }}>No overall data found.</Text>
+              <Text style={{ textAlign: 'center', color: '#BBB', marginTop: 10, marginBottom: 20, fontWeight: '700' }}>No attendance data found. Please check with admin.</Text>
             )}
 
-            {/* MONTHLY SUMMARY */}
+            {/* MONTHLY BREAKDOWN */}
             <Text style={[styles.sectionHeader, { marginTop: 20 }]}>Monthly Breakdown</Text>
-            {detailedAttendance.monthly.map((m, idx) => (
-              <View key={idx} style={styles.monthlyRow}>
-                <View style={styles.monthlyInfo}>
-                  <Text style={styles.monthlySub}>{m.subject_name}</Text>
-                  <Text style={styles.monthlyDate}>{getMonthName(m.month)} {m.year}</Text>
+            {detailedAttendance.monthly.map((m, idx) => {
+              const p = m.total > 0 ? Math.round((m.attended / m.total) * 100) : 0;
+              return (
+                <View key={idx} style={styles.monthlyRow}>
+                  <View style={styles.monthlyInfo}>
+                    <Text style={styles.monthlySub}>{m.subject_name}</Text>
+                    <Text style={styles.monthlyDate}>{getMonthName(m.month)} {m.year}</Text>
+                  </View>
+                  <View style={styles.monthlyStats}>
+                    <Text style={styles.monthlyRatio}>{m.attended} / {m.total}</Text>
+                    <Text style={[styles.monthlyPerc, { color: p < 75 ? '#FF5A5F' : '#2ecc71' }]}>{p}%</Text>
+                  </View>
                 </View>
-                <View style={styles.monthlyStats}>
-                  <Text style={styles.monthlyRatio}>{m.attended} / {m.total}</Text>
-                  <Text style={[styles.monthlyPerc, { color: (m.attended / m.total) < 0.75 ? '#FF5A5F' : '#2ecc71' }]}>
-                    {Math.round((m.attended / m.total) * 100)}%
-                  </Text>
-                </View>
-              </View>
-            ))}
+              );
+            })}
             {detailedAttendance.monthly.length === 0 && (
               <Text style={{ textAlign: 'center', color: '#BBB', marginTop: 10, fontWeight: '700' }}>No monthly data found.</Text>
             )}
