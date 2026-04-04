@@ -10,17 +10,25 @@ const StudentDashboard = () => {
     useEffect(() => {
         const fetchData = async () => {
             try {
-                const [noticeRes, assignmentRes, attendanceRes] = await Promise.all([
-                    api.get('/notices'),
-                    api.get('/assignments'),
-                    api.get('/attendance/my-detailed-attendance')
-                ]);
-                setNotices(noticeRes.data.notices.slice(0, 3));
-                setAssignments(assignmentRes.data.assignments || []);
+                // Fetch attendance separately so it's never blocked by other API failures
+                const attendanceRes = await api.get('/attendance/my-detailed-attendance');
+                console.log('RAW attendance response:', JSON.stringify(attendanceRes.data));
                 setAttendance(attendanceRes.data);
-                setLoading(true);
-            } catch (err) { console.error(err); }
-            finally { setLoading(false); }
+            } catch (err) {
+                console.error('Attendance fetch error:', err.response?.status, err.response?.data, err.message);
+            }
+
+            try {
+                const noticeRes = await api.get('/notices');
+                setNotices(noticeRes.data.notices.slice(0, 3));
+            } catch (err) { console.error('Notices error:', err.message); }
+
+            try {
+                const assignmentRes = await api.get('/assignments');
+                setAssignments(assignmentRes.data.assignments || []);
+            } catch (err) { console.error('Assignments error:', err.message); }
+
+            setLoading(false);
         };
         fetchData();
     }, []);
@@ -28,6 +36,15 @@ const StudentDashboard = () => {
     const getMonthName = (m) => {
         return new Date(2000, m - 1, 1).toLocaleString('default', { month: 'long' });
     };
+
+    if (loading) return (
+        <div className="d-flex justify-content-center align-items-center" style={{ minHeight: '60vh' }}>
+            <div className="text-center">
+                <div className="spinner-border text-primary mb-3" role="status"></div>
+                <div className="text-muted fw-bold small">Loading your dashboard...</div>
+            </div>
+        </div>
+    );
 
     return (
         <div className="student-dashboard container-fluid px-0">
@@ -71,39 +88,65 @@ const StudentDashboard = () => {
 
             <div className="row g-4 mb-5">
                 <div className="col-12">
-                   <div className="card border-0 shadow-sm rounded-4 p-4 bg-white border-start border-success border-5">
-                       <h5 className="fw-bold mb-4"><i className="bi bi-graph-up-arrow me-2 text-success"></i>Subject-wise Attendance</h5>
-                       <div className="row g-3">
-                           {attendance.overall.map(sub => {
-                               const percent = sub.total > 0 ? Math.round((sub.attended / sub.total) * 100) : 0;
-                               return (
-                                   <div key={sub.course_id} className="col-md-4 col-lg-3">
-                                       <div className="p-3 rounded-4 bg-light border-0 shadow-hover transition-all h-100">
-                                           <div className="d-flex justify-content-between align-items-start mb-2">
-                                               <span className="badge bg-white text-dark border small fw-bold px-2 py-1 rounded-pill">{sub.subject_code}</span>
-                                               <span className={`fw-bold ${percent < 75 ? 'text-danger' : 'text-success'}`}>{percent}%</span>
-                                           </div>
-                                           <h6 className="fw-bold mb-3">{sub.subject_name}</h6>
-                                           <div className="progress mb-2" style={{ height: '6px' }}>
-                                               <div 
-                                                   className={`progress-bar ${percent < 75 ? 'bg-danger' : 'bg-success'}`} 
-                                                   role="progressbar" 
-                                                   style={{ width: `${percent}%` }}
-                                               ></div>
-                                           </div>
-                                           <div className="text-muted small fw-bold d-flex justify-content-between">
-                                               <span>Attended: {sub.attended}</span>
-                                               <span>Total: {sub.total}</span>
-                                           </div>
-                                       </div>
+                   <div className="card shadow-sm border-0 rounded-4 overflow-hidden bg-white border-start border-success border-5">
+                       <div className="card-header bg-white border-bottom p-4">
+                           <h5 className="fw-bold m-0"><i className="bi bi-layers me-2 text-success"></i>Overall Semester Attendance</h5>
+                       </div>
+                       <div className="card-body p-0">
+                           <div className="table-responsive">
+                               <table className="table table-bordered align-middle text-center mb-0 border-0">
+                                   <thead className="bg-light text-dark">
+                                       <tr>
+                                           {attendance.overall.map(sub => (
+                                               <th key={sub.course_id} className="p-3 border-light border-start-0" style={{ minWidth: '120px' }}>
+                                                   {sub.subject_code}
+                                                   <div style={{ fontSize: '10px' }} className="text-muted fw-normal mt-1 text-wrap">{sub.subject_name}</div>
+                                               </th>
+                                           ))}
+                                           <th className="p-3 bg-success bg-opacity-10 border-light border-start-0 border-end-0" style={{ minWidth: '150px' }}>Overall Sem Total / %</th>
+                                       </tr>
+                                   </thead>
+                                   <tbody>
+                                       <tr>
+                                           {attendance.overall.map(sub => {
+                                               const percent = sub.total > 0 ? Math.round((sub.attended / sub.total) * 100) : 0;
+                                               return (
+                                                   <td key={sub.course_id} className="p-4 border-light border-start-0">
+                                                       <div className="fw-bold fs-6">
+                                                           <span className={percent >= 75 ? "text-success" : "text-danger"}>{sub.attended}</span>
+                                                           <span className="mx-1 text-muted">/</span>
+                                                           <span>{sub.total}</span>
+                                                       </div>
+                                                       <div className={`badge rounded-pill mt-2 ${percent >= 75 ? 'bg-success text-success' : 'bg-danger text-danger'} bg-opacity-10 px-3 py-2 fw-bold`}>
+                                                           {percent}%
+                                                       </div>
+                                                   </td>
+                                               );
+                                           })}
+                                           <td className="p-4 bg-success bg-opacity-10 border-light border-start-0 border-end-0">
+                                               {(() => {
+                                                    const totalAttended = attendance.overall.reduce((sum, sub) => sum + sub.attended, 0);
+                                                    const totalLectures = attendance.overall.reduce((sum, sub) => sum + sub.total, 0);
+                                                    const percent = totalLectures > 0 ? Math.round((totalAttended / totalLectures) * 100) : 0;
+                                                    return (
+                                                        <>
+                                                            <div className="fw-bold fs-5">{totalAttended} <span className="opacity-75 fs-6 fw-medium">/ {totalLectures}</span></div>
+                                                            <div className={`badge mt-2 fs-6 ${totalLectures > 0 && percent >= 75 ? 'bg-success' : 'bg-danger'} shadow-sm px-3 py-2`}>
+                                                                {percent}%
+                                                            </div>
+                                                        </>
+                                                    );
+                                               })()}
+                                           </td>
+                                       </tr>
+                                   </tbody>
+                               </table>
+                               {attendance.overall.length === 0 && (
+                                   <div className="text-center p-5 text-muted border-top border-light">
+                                       No attendance data available for the current semester.
                                    </div>
-                               );
-                           })}
-                           {attendance.overall.length === 0 && (
-                               <div className="col-12 text-center p-4 text-muted border border-dashed rounded-4">
-                                   No attendance data available.
-                               </div>
-                           )}
+                               )}
+                           </div>
                        </div>
                    </div>
                 </div>

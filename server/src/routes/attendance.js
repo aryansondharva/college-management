@@ -450,7 +450,7 @@ router.get('/student-summary', authenticate, async (req, res) => {
                 COUNT(*) FILTER (WHERE present = true) as attended,
                 COUNT(*) as total
             FROM attendances
-            WHERE student_id = $1 AND course_id IS NOT NULL
+            WHERE student_id = $1
         `, [student_id]);
         
         const summary = result.rows[0];
@@ -466,41 +466,81 @@ router.get('/student-summary', authenticate, async (req, res) => {
 router.get('/my-detailed-attendance', authenticate, async (req, res) => {
     try {
         const student_id = req.user.id;
-        
-        // 1. Overall subject-wise attendance
-        const overallResult = await db.query(`
-            SELECT 
-                c.id as course_id,
-                c.name as subject_name,
-                c.code as subject_code,
-                COUNT(a.id) FILTER (WHERE a.present = true) as attended,
-                COUNT(a.id) as total
-            FROM courses c
-            JOIN student_academic_infos sai ON sai.class_id = c.class_id
-            LEFT JOIN attendances a ON a.course_id = c.id AND a.student_id = $1
-            WHERE sai.student_id = $1
-            GROUP BY c.id, c.name, c.code
-        `, [student_id]);
 
-        // 2. Month-wise subject-wise attendance
-        const monthlyResult = await db.query(`
+        // Get student's academic info (session, class)
+        const saiRes = await db.query(
+            'SELECT session_id, class_id FROM student_academic_infos WHERE student_id = $1 LIMIT 1',
+            [student_id]
+        );
+
+        if (!saiRes.rows.length) {
+            return res.json({ overall: [], monthly: [] });
+        }
+
+        const { session_id, class_id } = saiRes.rows[0];
+
+        // Get all courses for this class
+        const coursesRes = await db.query(
+            'SELECT id, name, code FROM courses WHERE class_id = $1 ORDER BY id',
+            [class_id]
+        );
+
+        // Use EXACT same query as admin overall-report — group by course_id
+        const attendanceRes = await db.query(`
             SELECT 
-                c.id as course_id,
+                a.course_id,
+                COUNT(*) FILTER (WHERE a.present = true) as attended,
+                COUNT(*) as total
+            FROM attendances a
+            WHERE a.session_id = $1 AND a.class_id = $2 AND a.student_id = $3
+              AND a.course_id IS NOT NULL
+            GROUP BY a.course_id
+        `, [session_id, class_id, student_id]);
+
+        // Build a map of course_id -> stats
+        const statsMap = {};
+        attendanceRes.rows.forEach(row => {
+            statsMap[row.course_id] = {
+                attended: parseInt(row.attended) || 0,
+                total: parseInt(row.total) || 0
+            };
+        });
+
+        // Merge with course names
+        const overall = coursesRes.rows.map(c => ({
+            course_id: c.id,
+            subject_name: c.name,
+            subject_code: c.code,
+            attended: statsMap[c.id]?.attended || 0,
+            total: statsMap[c.id]?.total || 0
+        }));
+
+        // Monthly breakdown using same approach
+        const monthlyRes = await db.query(`
+            SELECT 
+                a.course_id,
                 c.name as subject_name,
                 EXTRACT(MONTH FROM a.attendance_date) as month,
                 EXTRACT(YEAR FROM a.attendance_date) as year,
-                COUNT(a.id) FILTER (WHERE a.present = true) as attended,
-                COUNT(a.id) as total
-            FROM courses c
-            JOIN attendances a ON a.course_id = c.id
-            WHERE a.student_id = $1
-            GROUP BY c.id, c.name, month, year
+                COUNT(*) FILTER (WHERE a.present = true) as attended,
+                COUNT(*) as total
+            FROM attendances a
+            JOIN courses c ON c.id = a.course_id
+            WHERE a.session_id = $1 AND a.class_id = $2 AND a.student_id = $3
+              AND a.course_id IS NOT NULL
+            GROUP BY a.course_id, c.name, month, year
             ORDER BY year DESC, month DESC, c.name ASC
-        `, [student_id]);
+        `, [session_id, class_id, student_id]);
 
         res.json({
-            overall: overallResult.rows,
-            monthly: monthlyResult.rows
+            overall,
+            monthly: monthlyRes.rows.map(r => ({
+                ...r,
+                attended: parseInt(r.attended) || 0,
+                total: parseInt(r.total) || 0,
+                month: parseInt(r.month),
+                year: parseInt(r.year)
+            }))
         });
     } catch (err) {
         console.error(err);
