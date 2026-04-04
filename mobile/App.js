@@ -46,6 +46,8 @@ export default function App() {
   const [showComingSoon, setShowComingSoon] = useState(false);
   const [appLoading, setAppLoading] = useState(true);
   const [currentTab, setCurrentTab] = useState('home');
+  const [notificationsHistory, setNotificationsHistory] = useState([]);
+
 
   // Profile Form States
   const [profileData, setProfileData] = useState({
@@ -117,7 +119,17 @@ export default function App() {
 
       const notificationListener = Notifications.addNotificationReceivedListener(notification => {
         console.log('Notification received:', notification);
+        const newNotif = {
+          id: notification.request.identifier,
+          title: notification.request.content.title,
+          body: notification.request.content.body,
+          data: notification.request.content.data,
+          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          date: new Date().toLocaleDateString()
+        };
+        setNotificationsHistory(prev => [newNotif, ...prev].slice(0, 10)); // Keep last 10
       });
+
 
       const responseListener = Notifications.addNotificationResponseReceivedListener(response => {
         console.log('Notification response:', response);
@@ -488,6 +500,23 @@ export default function App() {
                 );
               })()}
             </TouchableOpacity>
+
+            {/* NOTIFICATION SECTION */}
+            {notificationsHistory.length > 0 && (
+              <>
+                <Text style={styles.sectionHeader}>Important Alerts</Text>
+                {notificationsHistory.map((notif, index) => (
+                  <View key={notif.id} style={styles.notificationCard}>
+                    <View style={styles.notifStatusDot} />
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.notifTitle}>{notif.title}</Text>
+                      <Text style={styles.notifBody}>{notif.body}</Text>
+                      <Text style={styles.notifTime}>{notif.time}</Text>
+                    </View>
+                  </View>
+                ))}
+              </>
+            )}
 
             <Text style={styles.sectionHeader}>Subject-wise Attendance</Text>
             {detailedAttendance.overall.map((sub) => {
@@ -995,6 +1024,13 @@ const styles = StyleSheet.create({
     elevation: 10
   },
   saveBtnText: { color: '#000', fontSize: 16, fontWeight: '900' },
+
+  // --- NOTIFICATIONS ---
+  notificationCard: { backgroundColor: '#F9F9F9', borderRadius: 16, padding: 15, marginBottom: 10, flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: '#F0F0F0' },
+  notifStatusDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#FF5A5F', marginRight: 12 },
+  notifTitle: { fontSize: 13, fontWeight: '900', color: '#111' },
+  notifBody: { fontSize: 12, color: '#666', marginTop: 2, lineHeight: 16 },
+  notifTime: { fontSize: 9, fontWeight: '800', color: '#AAA', marginTop: 4, textTransform: 'uppercase' },
 
   // --- SUBJECT MINI CARDS ---
   subjectMiniCard: { width: 140, backgroundColor: '#F8F8F8', borderRadius: 20, padding: 18, marginRight: 15, borderWidth: 1, borderColor: '#F0F0F0' },

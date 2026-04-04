@@ -43,8 +43,11 @@ async function sendPushNotifications(userIds, title, body, data = {}) {
         title: title,
         body: body,
         data: { ...data, userId: row.user_id },
+        channelId: 'default',
+        priority: 'high',
       });
     }
+
 
     // The Expo push notification service accepts batches of messages to reduce
     // the number of requests and to improve efficiency.
