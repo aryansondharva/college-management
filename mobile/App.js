@@ -15,13 +15,27 @@ import {
   ScrollView,
   Animated
 } from 'react-native';
+import * as Notifications from 'expo-notifications';
+import * as Device from 'expo-device';
 import { io } from 'socket.io-client';
+
 import { User, Lock, GraduationCap, Home, BookOpen, Calendar, Clock, AlertCircle, LogOut } from 'lucide-react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import Constants from 'expo-constants';
 import client from './src/api/client';
 
 
+
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldPlaySound: true,
+    shouldSetBadge: false,
+  }),
+});
+
 export default function App() {
+
   const [identity, setIdentity] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -91,7 +105,71 @@ export default function App() {
     }
   }, [user]);
 
+  useEffect(() => {
+    if (user) {
+      registerForPushNotificationsAsync().then(token => {
+        if (token) {
+          client.post('/users/push-token', { token })
+            .then(() => console.log('Push token saved to backend'))
+            .catch(err => console.error('Failed to save push token:', err));
+        }
+      });
+
+      const notificationListener = Notifications.addNotificationReceivedListener(notification => {
+        console.log('Notification received:', notification);
+      });
+
+      const responseListener = Notifications.addNotificationResponseReceivedListener(response => {
+        console.log('Notification response:', response);
+        // Navigate to attendance tab if it's an attendance notification
+        if (response.notification.request.content.data?.type === 'attendance') {
+           setCurrentTab('attendance');
+        }
+      });
+
+      return () => {
+        Notifications.removeNotificationSubscription(notificationListener);
+        Notifications.removeNotificationSubscription(responseListener);
+      };
+    }
+  }, [user]);
+
+  async function registerForPushNotificationsAsync() {
+    let token;
+    if (Device.isDevice) {
+      const { status: existingStatus } = await Notifications.getPermissionsAsync();
+      let finalStatus = existingStatus;
+      if (existingStatus !== 'granted') {
+        const { status } = await Notifications.requestPermissionsAsync();
+        finalStatus = status;
+      }
+      if (finalStatus !== 'granted') {
+        alert('Failed to get push token for push notification!');
+        return;
+      }
+      
+      const projectId = Constants?.expoConfig?.extra?.eas?.projectId || 'e711222f-37a2-4217-ac3c-a612e6222d01';
+      token = (await Notifications.getExpoPushTokenAsync({ projectId })).data;
+      console.log('Expo Push Token:', token);
+    } else {
+
+      console.log('Must use physical device for Push Notifications');
+    }
+
+    if (Platform.OS === 'android') {
+      Notifications.setNotificationChannelAsync('default', {
+        name: 'default',
+        importance: Notifications.AndroidImportance.MAX,
+        vibrationPattern: [0, 250, 250, 250],
+        lightColor: '#FF231F7C',
+      });
+    }
+
+    return token;
+  }
+
   const fetchAttendance = async () => {
+
     try {
       const [summaryRes, detailedRes] = await Promise.all([
         client.get('/attendance/student-summary'),

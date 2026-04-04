@@ -313,4 +313,23 @@ router.get('/summary', authenticate, async (req, res) => {
   }
 });
 
+// POST /api/users/push-token
+router.post('/push-token', authenticate, async (req, res) => {
+  try {
+    const { token } = req.body;
+    if (!token) return res.status(400).json({ message: 'Token is required.' });
+
+    await db.query(
+      `INSERT INTO push_tokens (user_id, token, updated_at)
+       VALUES ($1, $2, NOW())
+       ON CONFLICT (token) DO UPDATE SET user_id = $1, updated_at = NOW()`,
+      [req.user.id, token]
+    );
+    res.json({ message: 'Push token saved successfully.' });
+  } catch (err) {
+    res.status(500).json({ message: 'Server error.', error: err.message });
+  }
+});
+
 module.exports = router;
+

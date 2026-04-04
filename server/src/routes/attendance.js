@@ -2,6 +2,8 @@ const express = require('express');
 const db = require('../config/database');
 const { authenticate } = require('../middleware/auth');
 const { can } = require('../middleware/permissions');
+const { sendPushNotifications } = require('../utils/notifications');
+
 
 const router = express.Router();
 
@@ -85,7 +87,41 @@ router.post('/', authenticate, async (req, res) => {
         io.emit(`attendance-updated-class-${class_id}`, { class_id, section_id });
         io.emit('attendance-dashboard-updated'); // General refresh
     }
+
+    // --- PUSH NOTIFICATIONS ---
+    try {
+        const courseRes = await db.query('SELECT name FROM courses WHERE id = $1', [course_id === '0' || course_id === 'null' ? null : course_id]);
+        const subjectName = (courseRes.rows[0] && courseRes.rows[0].name) || 'General';
+        const today = new Date().toLocaleDateString();
+
+        // Group students by present/absent for notification
+        const presentStudents = attendance_data.filter(s => s.present).map(s => s.student_id);
+        const absentStudents = attendance_data.filter(s => !s.present).map(s => s.student_id);
+
+        if (presentStudents.length > 0) {
+            await sendPushNotifications(
+                presentStudents,
+                'Attendance Taken',
+                `You were marked PRESENT for ${subjectName} on ${today}`,
+                { type: 'attendance', status: 'present', subject: subjectName }
+            );
+        }
+
+        if (absentStudents.length > 0) {
+            await sendPushNotifications(
+                absentStudents,
+                'Attendance Taken',
+                `You were marked ABSENT for ${subjectName} on ${today}`,
+                { type: 'attendance', status: 'absent', subject: subjectName }
+            );
+        }
+    } catch (pushErr) {
+        console.error('Push notification failed:', pushErr);
+    }
+    // ---------------------------
+
     res.json({ message: 'Attendance recorded successfully.' });
+
   } catch (err) {
     res.status(500).json({ message: 'Server error.', error: err.message });
   }

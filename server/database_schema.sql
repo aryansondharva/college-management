@@ -249,3 +249,14 @@ CREATE TABLE IF NOT EXISTS user_roles (
     role_id INTEGER REFERENCES roles(id) ON DELETE CASCADE,
     PRIMARY KEY (user_id, role_id)
 );
+
+-- Push Notifications Support
+CREATE TABLE IF NOT EXISTS push_tokens (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+    token TEXT UNIQUE NOT NULL,
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW(),
+    UNIQUE(user_id, token)
+);
+
