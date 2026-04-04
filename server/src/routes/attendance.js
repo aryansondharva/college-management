@@ -72,13 +72,10 @@ router.post('/', authenticate, async (req, res) => {
     }
     const io = req.app.get('io');
     if (io) {
-        // Broadcast to specific student IDs that were updated
-        const studentIds = req.body.attendance_data.map(i => i.student_id);
-        studentIds.forEach(sid => {
-            console.log(`Broadcasting attendance update for student: ${sid}`);
-            io.emit(`attendance-updated-${sid}`, { student_id: sid });
-        });
-        io.emit('attendance-dashboard-updated'); // General refresh for anyone listening
+        // Broadcast to specific class/section for real-time updates
+        console.log(`Broadcasting attendance update for class: ${class_id}, section: ${section_id}`);
+        io.emit(`attendance-updated-class-${class_id}`, { class_id, section_id });
+        io.emit('attendance-dashboard-updated'); // General refresh
     }
     res.json({ message: 'Attendance recorded successfully.' });
   } catch (err) {

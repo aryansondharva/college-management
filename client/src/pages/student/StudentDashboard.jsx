@@ -1,37 +1,81 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useContext } from 'react';
 import api from '../../api';
+import { AuthContext } from '../../context/AuthContext';
+import { io } from 'socket.io-client';
 
 const StudentDashboard = () => {
+    const { user } = useContext(AuthContext);
     const [assignments, setAssignments] = useState([]);
     const [notices, setNotices] = useState([]);
     const [attendance, setAttendance] = useState({ overall: [], monthly: [] });
     const [loading, setLoading] = useState(true);
 
+    const fetchData = async () => {
+        try {
+            // Fetch attendance separately so it's never blocked by other API failures
+            const attendanceRes = await api.get('/attendance/my-detailed-attendance');
+            console.log('RAW attendance response:', JSON.stringify(attendanceRes.data));
+            setAttendance(attendanceRes.data);
+        } catch (err) {
+            console.error('Attendance fetch error:', err.response?.status, err.response?.data, err.message);
+        }
+
+        try {
+            const noticeRes = await api.get('/notices');
+            setNotices(noticeRes.data.notices.slice(0, 3));
+        } catch (err) { console.error('Notices error:', err.message); }
+
+        try {
+            const assignmentRes = await api.get('/assignments');
+            setAssignments(assignmentRes.data.assignments || []);
+        } catch (err) { console.error('Assignments error:', err.message); }
+
+        setLoading(false);
+    };
+
     useEffect(() => {
-        const fetchData = async () => {
-            try {
-                // Fetch attendance separately so it's never blocked by other API failures
-                const attendanceRes = await api.get('/attendance/my-detailed-attendance');
-                console.log('RAW attendance response:', JSON.stringify(attendanceRes.data));
-                setAttendance(attendanceRes.data);
-            } catch (err) {
-                console.error('Attendance fetch error:', err.response?.status, err.response?.data, err.message);
-            }
-
-            try {
-                const noticeRes = await api.get('/notices');
-                setNotices(noticeRes.data.notices.slice(0, 3));
-            } catch (err) { console.error('Notices error:', err.message); }
-
-            try {
-                const assignmentRes = await api.get('/assignments');
-                setAssignments(assignmentRes.data.assignments || []);
-            } catch (err) { console.error('Assignments error:', err.message); }
-
-            setLoading(false);
-        };
         fetchData();
     }, []);
+
+    useEffect(() => {
+        if (!user || !user.id) return;
+
+        // Connect to socket server
+        // Use the same base URL as the API but without /api
+        const socket = io(import.meta.env.VITE_API_BASE_URL.replace('/api', ''), {
+            transports: ['websocket'],
+            reconnection: true
+        });
+
+        socket.on('connect', () => {
+            console.log('Real-time connection established for student:', user.id);
+        });
+
+        // Listen for specific class updates (NEW logic)
+        if (user.class_id) {
+            console.log('Subscribing to real-time updates for class:', user.class_id);
+            socket.on(`attendance-updated-class-${user.class_id}`, () => {
+                console.log('Class attendance update received! Refreshing data...');
+                fetchData();
+            });
+        }
+
+        // Listen for specific student updates (Fallback)
+        socket.on(`attendance-updated-${user.id}`, () => {
+            console.log('Individual attendance update received! Refreshing data...');
+            fetchData();
+        });
+
+        // Listen for general dashboard updates
+        socket.on('attendance-dashboard-updated', () => {
+            console.log('General attendance update received! Refreshing data...');
+            fetchData();
+        });
+
+        return () => {
+            socket.disconnect();
+        };
+    }, [user]);
 
     const getMonthName = (m) => {
         return new Date(2000, m - 1, 1).toLocaleString('default', { month: 'long' });

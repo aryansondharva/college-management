@@ -141,13 +141,18 @@ CREATE TABLE IF NOT EXISTS marks (
 CREATE TABLE IF NOT EXISTS attendances (
     id SERIAL PRIMARY KEY,
     student_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+    course_id INTEGER REFERENCES courses(id) ON DELETE CASCADE,
     session_id INTEGER REFERENCES school_sessions(id),
     class_id INTEGER REFERENCES school_classes(id),
     section_id INTEGER REFERENCES sections(id),
     attendance_date DATE NOT NULL,
     present BOOLEAN DEFAULT FALSE,
-    created_at TIMESTAMP DEFAULT NOW()
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW()
 );
+
+-- Crucial for the ON CONFLICT query in the backend
+CREATE UNIQUE INDEX IF NOT EXISTS unique_attendance_idx ON attendances (student_id, attendance_date, COALESCE(course_id, 0));
 
 CREATE TABLE IF NOT EXISTS promotions (
     id SERIAL PRIMARY KEY,

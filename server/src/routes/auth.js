@@ -78,9 +78,11 @@ router.get('/me', authenticate, async (req, res) => {
     const result = await db.query(
       `SELECT u.id, u.first_name, u.last_name, u.email, u.role, u.photo, u.gender, 
               u.phone, u.birthday, u.address, u.city, u.zip, u.blood_type, 
-              u.enrollment_no, u.nationality, u.religion, p.father_name
+              u.enrollment_no, u.nationality, u.religion, p.father_name,
+              sai.class_id, sai.section_id
        FROM users u
        LEFT JOIN student_parent_infos p ON p.student_id = u.id
+       LEFT JOIN student_academic_infos sai ON sai.student_id = u.id
        WHERE u.id = $1`,
       [req.user.id]
     );

@@ -75,6 +75,11 @@ export default function App() {
       // Real-time connection (Live Render)
       const socket = io('https://college-management-mjul.onrender.com');
 
+      socket.on(`attendance-updated-class-${user.class_id}`, (data) => {
+        console.log('Class attendance update received!');
+        fetchAttendance();
+      });
+
       socket.on(`attendance-updated-${user.id}`, (data) => {
         Alert.alert("Attendance Update!", "Admin has updated your attendance.");
         fetchAttendance();
