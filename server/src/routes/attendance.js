@@ -90,19 +90,35 @@ router.post('/', authenticate, async (req, res) => {
 
     // --- PUSH NOTIFICATIONS ---
     try {
-        const courseRes = await db.query('SELECT name FROM courses WHERE id = $1', [course_id === '0' || course_id === 'null' ? null : course_id]);
+        // Group students by present/absent for notification
+        let presentStudents = [];
+        let absentStudents = [];
+
+        if (req.body.is_bulk_subjects) {
+            // In bulk mode, attendance_data is [{student_id, subjects: {id: bool}}]
+            attendance_data.forEach(item => {
+                // Determine overall presence for the day if multiple subjects
+                const isPresentOverall = Object.values(item.subjects).some(v => v === true);
+                if (isPresentOverall) {
+                    presentStudents.push(item.student_id);
+                } else {
+                    absentStudents.push(item.student_id);
+                }
+            });
+        } else {
+            presentStudents = attendance_data.filter(s => s.present).map(s => s.student_id);
+            absentStudents = attendance_data.filter(s => !s.present).map(s => s.student_id);
+        }
+
+        const courseRes = await db.query('SELECT name FROM courses WHERE id = $1', [course_id === '0' || course_id === 'null' || !course_id ? null : course_id]);
         const subjectName = (courseRes.rows[0] && courseRes.rows[0].name) || 'General';
         const today = new Date().toLocaleDateString();
-
-        // Group students by present/absent for notification
-        const presentStudents = attendance_data.filter(s => s.present).map(s => s.student_id);
-        const absentStudents = attendance_data.filter(s => !s.present).map(s => s.student_id);
 
         if (presentStudents.length > 0) {
             await sendPushNotifications(
                 presentStudents,
                 'Attendance Taken',
-                `You were marked PRESENT for ${subjectName} on ${today}`,
+                `You were marked PRESENT for ${req.body.is_bulk_subjects ? 'your subjects' : subjectName} on ${today}`,
                 { type: 'attendance', status: 'present', subject: subjectName }
             );
         }
@@ -111,7 +127,7 @@ router.post('/', authenticate, async (req, res) => {
             await sendPushNotifications(
                 absentStudents,
                 'Attendance Taken',
-                `You were marked ABSENT for ${subjectName} on ${today}`,
+                `You were marked ABSENT for ${req.body.is_bulk_subjects ? 'your subjects' : subjectName} on ${today}`,
                 { type: 'attendance', status: 'absent', subject: subjectName }
             );
         }

@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import api from '../../api';
+import { io } from 'socket.io-client';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 const AdminDashboard = () => {
@@ -9,27 +10,38 @@ const AdminDashboard = () => {
     const [assignments, setAssignments] = useState([]);
     const [loading, setLoading] = useState(true);
 
+    const fetchData = async () => {
+        try {
+            const [res, noticeRes, attendanceRes, assignmentRes] = await Promise.all([
+                api.get('/users/summary'),
+                api.get('/notices'),
+                api.get('/attendance/today-summary'),
+                api.get('/assignments')
+            ]);
+            setStats(res.data);
+            setNotices(noticeRes.data.notices.slice(0, 3));
+            setAttendanceData((attendanceRes.data.summary || []).map(item => ({
+                className: `${item.class_name} ${item.section_name}`,
+                present: parseInt(item.present_count || 0),
+                absent: parseInt(item.absent_count || 0)
+            })));
+            setAssignments(assignmentRes.data.assignments.slice(0, 5));
+        } catch (err) { console.error(err); }
+        finally { setLoading(false); }
+    };
+
     useEffect(() => {
-        const fetchData = async () => {
-            try {
-                const [res, noticeRes, attendanceRes, assignmentRes] = await Promise.all([
-                    api.get('/users/summary'),
-                    api.get('/notices'),
-                    api.get('/attendance/today-summary'),
-                    api.get('/assignments')
-                ]);
-                setStats(res.data);
-                setNotices(noticeRes.data.notices.slice(0, 3));
-                setAttendanceData((attendanceRes.data.summary || []).map(item => ({
-                    className: `${item.class_name} ${item.section_name}`,
-                    present: parseInt(item.present_count || 0),
-                    absent: parseInt(item.absent_count || 0)
-                })));
-                setAssignments(assignmentRes.data.assignments.slice(0, 5));
-            } catch (err) { console.error(err); }
-            finally { setLoading(false); }
-        };
         fetchData();
+
+        // Socket.io for Real-time Dashboard Updates
+        const socket = io('https://college-management-mjul.onrender.com');
+        
+        socket.on('attendance-dashboard-updated', () => {
+            console.log('Real-time dashboard refresh triggered!');
+            fetchData();
+        });
+
+        return () => socket.disconnect();
     }, []);
 
     return (

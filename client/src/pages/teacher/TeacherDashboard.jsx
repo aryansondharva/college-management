@@ -2,25 +2,38 @@ import React, { useEffect, useState } from 'react';
 import api from '../../api';
 import { useNavigate } from 'react-router-dom';
 
+import { io } from 'socket.io-client';
+
 const TeacherDashboard = () => {
     const navigate = useNavigate();
     const [assignments, setAssignments] = useState([]);
     const [stats, setStats] = useState({});
     const [loading, setLoading] = useState(true);
 
+    const fetchData = async () => {
+        try {
+            const [res, assignmentRes] = await Promise.all([
+                api.get('/users/summary'),
+                api.get('/assignments')
+            ]);
+            setStats(res.data);
+            setAssignments(assignmentRes.data.assignments || []);
+        } catch (err) { console.error(err); }
+        finally { setLoading(false); }
+    };
+
     useEffect(() => {
-        const fetchData = async () => {
-            try {
-                const [res, assignmentRes] = await Promise.all([
-                    api.get('/users/summary'),
-                    api.get('/assignments')
-                ]);
-                setStats(res.data);
-                setAssignments(assignmentRes.data.assignments || []);
-            } catch (err) { console.error(err); }
-            finally { setLoading(false); }
-        };
         fetchData();
+
+        // Socket.io for Real-time Dashboard Updates
+        const socket = io('https://college-management-mjul.onrender.com');
+        
+        socket.on('attendance-dashboard-updated', () => {
+            console.log('Teacher dashboard update received!');
+            fetchData();
+        });
+
+        return () => socket.disconnect();
     }, []);
 
     return (

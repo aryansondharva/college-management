@@ -18,7 +18,10 @@ router.post('/login', async (req, res) => {
     console.log('Login attempt for identity:', identity);
     
     const result = await db.query(
-      'SELECT * FROM users WHERE LOWER(email) = LOWER($1) OR enrollment_no = $1',
+      `SELECT u.*, sai.class_id, sai.section_id, sai.session_id
+       FROM users u
+       LEFT JOIN student_academic_infos sai ON sai.student_id = u.id
+       WHERE LOWER(u.email) = LOWER($1) OR u.enrollment_no = $1`,
       [identity]
     );
     console.log('User found in database:', result.rows.length > 0);
