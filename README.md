@@ -1,4 +1,4 @@
-<!-- Professional Header with Badges -->
+<!-- Professional Header with Badges  -->
 <p align="center">
   <img src="./mobile/assets/logo.png" width="160" height="160" alt="Drop Logo">
 </p>
