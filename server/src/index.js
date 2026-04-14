@@ -33,6 +33,8 @@ const syllabusRoutes = require('./routes/syllabus');
 const eventRoutes = require('./routes/events');
 const academicSettingRoutes = require('./routes/academic_settings');
 const aiRoutes = require('./routes/ai');
+const uploadRoutes = require('./routes/uploads');
+const path = require('path');
 
 
 // Mounting Routes
@@ -54,6 +56,10 @@ app.use('/api/syllabus', syllabusRoutes);
 app.use('/api/events', eventRoutes);
 app.use('/api/academic-settings', academicSettingRoutes);
 app.use('/api/ai', aiRoutes);
+app.use('/api/upload', uploadRoutes);
+
+// Static file serving for uploads
+app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
 
 // Debug route to diagnose Render -> Supabase issues

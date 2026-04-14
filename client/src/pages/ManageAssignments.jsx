@@ -18,8 +18,11 @@ const ManageAssignments = () => {
         description: '', 
         deadline: '', 
         target_audience: 'everyone', 
-        specific_student_ids: '' // as comma separated string
+        specific_student_ids: '', // as comma separated string
+        attachments: []
     });
+    const [attachmentFiles, setAttachmentFiles] = useState([]);
+    const [uploading, setUploading] = useState(false);
     const [showForm, setShowForm] = useState(false);
     const [loading, setLoading] = useState(false);
     const [message, setMessage] = useState({ text: '', type: '' });
@@ -61,21 +64,44 @@ const ManageAssignments = () => {
 
     const handleAddAssignment = async (e) => {
         e.preventDefault();
-        const studentIds = newAssignment.specific_student_ids.split(',').map(id => parseInt(id.trim())).filter(id => !isNaN(id));
+        setLoading(true);
+        let currentAttachments = [];
+
         try {
+            // 1. Upload files if exist
+            if (attachmentFiles.length > 0) {
+                setUploading(true);
+                const formData = new FormData();
+                attachmentFiles.forEach(file => {
+                    formData.append('files', file);
+                });
+                
+                const uploadRes = await api.post('/upload/assignment', formData, {
+                    headers: { 'Content-Type': 'multipart/form-data' }
+                });
+                currentAttachments = uploadRes.data.files;
+            }
+
+            const studentIds = newAssignment.specific_student_ids.split(',').map(id => parseInt(id.trim())).filter(id => !isNaN(id));
+            
             await api.post('/assignments', { 
                 ...newAssignment, 
+                attachments: currentAttachments,
                 class_id: selectedClassId, 
                 course_id: selectedCourseId,
                 specific_student_ids: studentIds
             });
             setMessage({ text: 'Assignment published and allotted successfully.', type: 'success' });
-            setNewAssignment({ title: '', description: '', deadline: '', target_audience: 'everyone', specific_student_ids: '' });
+            setNewAssignment({ title: '', description: '', deadline: '', target_audience: 'everyone', specific_student_ids: '', attachments: [] });
+            setAttachmentFiles([]);
             setShowForm(false);
             fetchAssignments();
         } catch (err) { 
             const errorMsg = err.response?.data?.message || 'Error publishing assignment.';
             setMessage({ text: `${errorMsg} ${err.response?.data?.details || ''}`, type: 'danger' }); 
+        } finally {
+            setLoading(false);
+            setUploading(false);
         }
     };
 
@@ -160,9 +186,38 @@ const ManageAssignments = () => {
                                     <label className="form-label small fw-bold">Instructions & Details</label>
                                     <textarea className="form-control bg-light border-0 py-2" rows="4" value={newAssignment.description} onChange={(e) => setNewAssignment(p=>({...p, description:e.target.value}))} placeholder="Provide clear steps for the task..." required />
                                 </div>
+                                <div className="col-md-12">
+                                    <label className="form-label small fw-bold">Attachments (Max 5 Files)</label>
+                                    <div className="input-group mb-2">
+                                        <input 
+                                            type="file" 
+                                            className="form-control bg-light border-0 py-2" 
+                                            onChange={(e) => {
+                                                const files = Array.from(e.target.files);
+                                                if (attachmentFiles.length + files.length > 5) {
+                                                    alert("You can only upload a maximum of 5 files.");
+                                                    return;
+                                                }
+                                                setAttachmentFiles([...attachmentFiles, ...files]);
+                                            }} 
+                                            accept=".pdf,.png,.jpg,.jpeg,.doc,.docx" 
+                                            multiple 
+                                        />
+                                    </div>
+                                    <div className="d-flex flex-wrap gap-2">
+                                        {attachmentFiles.map((f, idx) => (
+                                            <div key={idx} className="badge bg-light text-dark border p-2 d-flex align-items-center">
+                                                <i className="bi bi-file-earmark-check me-2"></i>
+                                                <span className="me-2 text-truncate" style={{ maxWidth: '150px' }}>{f.name}</span>
+                                                <i className="bi bi-x-circle text-danger cursor-pointer" onClick={() => setAttachmentFiles(attachmentFiles.filter((_, i) => i !== idx))}></i>
+                                            </div>
+                                        ))}
+                                    </div>
+                                    <div className="form-text small">Select up to 5 documents or photos related to this task.</div>
+                                </div>
                                 <div className="col-12 pt-2">
-                                    <button type="submit" className="btn btn-primary px-5 py-2 fw-bold rounded-pill shadow-sm">
-                                        <i className="bi bi-send-fill me-2"></i> Publish & Allot Work
+                                    <button type="submit" className="btn btn-primary px-5 py-2 fw-bold rounded-pill shadow-sm" disabled={uploading}>
+                                        <i className="bi bi-send-fill me-2"></i> {uploading ? 'Uploading Attachment...' : 'Publish & Allot Work'}
                                     </button>
                                 </div>
                             </div>
@@ -179,6 +234,21 @@ const ManageAssignments = () => {
                                 <h5 className="fw-bold">{a.title}</h5>
                                 <div className="text-muted small mb-3"><i className="bi bi-clock me-1 text-danger"></i> Deadline: {new Date(a.deadline).toLocaleDateString()}</div>
                                 <div className="bg-light p-3 rounded text-secondary mb-3 small">{a.description}</div>
+                                {Array.isArray(a.attachments) && a.attachments.length > 0 && (
+                                    <div className="mb-3 d-flex flex-wrap gap-2">
+                                        {a.attachments.map((file, i) => (
+                                            <a 
+                                                key={i} 
+                                                href={`${import.meta.env.VITE_API_URL?.replace('/api', '') || (window.location.hostname === 'localhost' ? 'http://localhost:5000' : '')}${file.url}`} 
+                                                target="_blank" 
+                                                rel="noopener noreferrer" 
+                                                className="btn btn-sm btn-light border small py-1"
+                                            >
+                                                <i className="bi bi-paperclip me-1"></i> File {i + 1}
+                                            </a>
+                                        ))}
+                                    </div>
+                                )}
                                 <button className="btn btn-sm btn-outline-primary fw-bold">View Submissions</button>
                             </div>
                         </div>

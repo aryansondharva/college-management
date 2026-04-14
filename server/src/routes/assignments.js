@@ -63,7 +63,7 @@ router.post('/', authenticate, async (req, res) => {
         return res.status(403).json({ message: 'Forbidden: Only admins and teachers can allot work.' });
     }
     
-    const { title, description, class_id, course_id, deadline, target_audience, specific_student_ids } = req.body;
+    const { title, description, class_id, course_id, deadline, target_audience, specific_student_ids, attachments } = req.body;
 
     // Field Validation
     if (!title || !description || !class_id || !course_id || !deadline) {
@@ -71,8 +71,8 @@ router.post('/', authenticate, async (req, res) => {
     }
 
     const result = await db.query(
-      'INSERT INTO assignments (title, description, class_id, course_id, deadline, target_audience, specific_student_ids, created_by) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *',
-      [title, description, parseInt(class_id), parseInt(course_id), deadline, target_audience || 'everyone', JSON.stringify(specific_student_ids || []), req.user.id]
+      'INSERT INTO assignments (title, description, class_id, course_id, deadline, target_audience, specific_student_ids, created_by, attachments) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *',
+      [title, description, parseInt(class_id), parseInt(course_id), deadline, target_audience || 'everyone', JSON.stringify(specific_student_ids || []), req.user.id, JSON.stringify(attachments || [])]
     );
     res.status(201).json({ message: 'Assignment created successfully.', assignment: result.rows[0] });
   } catch (err) {

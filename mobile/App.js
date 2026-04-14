@@ -13,7 +13,8 @@ import {
   StatusBar,
   Alert,
   ScrollView,
-  Animated
+  Animated,
+  Linking
 } from 'react-native';
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
@@ -48,6 +49,7 @@ export default function App() {
   const [appLoading, setAppLoading] = useState(true);
   const [currentTab, setCurrentTab] = useState('home');
   const [notificationsHistory, setNotificationsHistory] = useState([]);
+  const [assignments, setAssignments] = useState([]);
 
 
   // Profile Form States
@@ -145,6 +147,12 @@ export default function App() {
     }
   }, [user]);
 
+  useEffect(() => {
+    if (user) {
+      fetchAssignments();
+    }
+  }, [user]);
+
   async function registerForPushNotificationsAsync() {
     let token;
     if (Device.isDevice) {
@@ -180,7 +188,6 @@ export default function App() {
   }
 
   const fetchAttendance = async () => {
-
     try {
       const [summaryRes, detailedRes] = await Promise.all([
         client.get('/attendance/student-summary'),
@@ -190,6 +197,15 @@ export default function App() {
       setDetailedAttendance(detailedRes.data);
     } catch (err) {
       console.error('Failed to fetch attendance:', err);
+    }
+  };
+
+  const fetchAssignments = async () => {
+    try {
+      const res = await client.get('/assignments');
+      setAssignments(res.data.assignments);
+    } catch (err) {
+      console.error('Failed to fetch assignments:', err);
     }
   };
 
@@ -237,22 +253,26 @@ export default function App() {
   const LoadingScreen = ({ message }) => {
     return (
       <View style={styles.loadingOverlay}>
-        <StatusBar hidden />
-        <Video
-          source={require('./assets/drop.mp4')}
-          style={StyleSheet.absoluteFill}
-          resizeMode={ResizeMode.COVER}
-          shouldPlay
-          isLooping={message ? true : false} 
-          onPlaybackStatusUpdate={(status) => {
-            // Only transition if it's the initial intro (no message) and video finished
-            if (!message && status.didJustFinish) {
-              setAppLoading(false); 
-            }
-          }}
-        />
-        {message && (
-          <View style={[StyleSheet.absoluteFill, { justifyContent: 'flex-end', alignItems: 'center', paddingBottom: 100, backgroundColor: 'rgba(0,0,0,0.3)' }]}>
+        <StatusBar hidden={!message} />
+        {!message ? (
+          <Video
+            source={require('./assets/drop.mp4')}
+            style={StyleSheet.absoluteFill}
+            resizeMode={ResizeMode.COVER}
+            shouldPlay
+            isLooping={false}
+            onPlaybackStatusUpdate={(status) => {
+              if (status.didJustFinish) {
+                setAppLoading(false);
+              }
+            }}
+          />
+        ) : (
+          <View style={{ alignItems: 'center' }}>
+            <Image 
+              source={require('./assets/logo.png')} 
+              style={{ width: 80, height: 80, marginBottom: 30, opacity: 0.8 }} 
+            />
             <ActivityIndicator size="large" color="#FFF" />
             <Text style={[styles.loadingMsg, { marginTop: 20 }]}>{message}</Text>
           </View>
@@ -622,7 +642,12 @@ export default function App() {
         />
       )}
 
-      {currentTab === 'schedule' && <ComingSoon />}
+      {currentTab === 'schedule' && (
+        <AssignmentsScreen 
+          assignments={assignments} 
+          loading={loading} 
+        />
+      )}
       {currentTab === 'syllabus' && <ComingSoon />}
 
       {/* BOTTOM NAV */}
@@ -640,7 +665,7 @@ export default function App() {
           onPress={() => setCurrentTab('schedule')}
         >
           <Calendar size={22} color={currentTab === 'schedule' ? "#121212" : "#BBB"} />
-          <Text style={[styles.navTxt, { color: currentTab === 'schedule' ? '#121212' : '#BBB' }]}>Schedule</Text>
+          <Text style={[styles.navTxt, { color: currentTab === 'schedule' ? '#121212' : '#BBB' }]}>Tasks</Text>
           {currentTab === 'schedule' && <View style={styles.navDot} />}
         </TouchableOpacity>
         <TouchableOpacity
@@ -801,6 +826,85 @@ function ProfileScreen({ user, profileData, setProfileData, handleUpdateProfile,
         <View style={{ height: 100 }} />
       </View>
     </ScrollView>
+  );
+}
+
+function AssignmentsScreen({ assignments, loading }) {
+  const getBadgeColor = (audience) => {
+    return audience === 'failure' ? '#FF5A5F' : '#121212';
+  };
+
+  return (
+    <View style={{ flex: 1, backgroundColor: '#FFF' }}>
+      <View style={[styles.header, { paddingBottom: 25 }]}>
+        <Text style={styles.welcome}>My Allotted Work</Text>
+        <Text style={styles.userName}>Active Tasks</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 10 }}>
+          <View style={{ backgroundColor: '#2ecc7120', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20 }}>
+            <Text style={{ color: '#2ecc71', fontWeight: '900', fontSize: 13 }}>{assignments.length} Pending</Text>
+          </View>
+        </View>
+      </View>
+
+      <ScrollView style={styles.main} showsVerticalScrollIndicator={false}>
+        <Text style={styles.sectionHeader}>Upcoming Deadlines</Text>
+        
+        {assignments.map((task) => (
+          <View key={task.id} style={styles.taskCard}>
+            <View style={styles.taskHeader}>
+              <View style={[styles.taskBadge, { backgroundColor: getBadgeColor(task.target_audience) }]}>
+                <Text style={styles.taskBadgeText}>
+                  {task.target_audience === 'failure' ? 'Remedial' : 'General'}
+                </Text>
+              </View>
+              <Text style={styles.taskSubject}>{task.course_name}</Text>
+            </View>
+            
+            <Text style={styles.taskTitle}>{task.title}</Text>
+            <Text style={styles.taskDesc} numberOfLines={3}>{task.description}</Text>
+            
+            {task.attachments && task.attachments.length > 0 && (
+              <View style={{ gap: 8, marginBottom: 15 }}>
+                {task.attachments.map((file, i) => (
+                  <TouchableOpacity 
+                    key={i}
+                    style={styles.attachmentPin} 
+                    onPress={() => Linking.openURL(`https://college-management-mjul.onrender.com${file.url}`)}
+                  >
+                    <AlertCircle size={14} color="#3498db" />
+                    <Text style={styles.attachmentText} numberOfLines={1}>
+                      {file.name || `Attachment ${i + 1}`}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
+
+            <View style={styles.taskFooter}>
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <Clock size={14} color="#AAA" />
+                <Text style={styles.taskDueDate}>
+                  Due: {new Date(task.deadline).toLocaleDateString()}
+                </Text>
+              </View>
+              <TouchableOpacity style={styles.taskBtn}>
+                <Text style={styles.taskBtnText}>View Details</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        ))}
+
+        {assignments.length === 0 && (
+          <View style={{ padding: 60, alignItems: 'center' }}>
+            <Calendar size={50} color="#EEE" />
+            <Text style={{ color: '#BBB', fontWeight: '700', marginTop: 20 }}>All caught up!</Text>
+            <Text style={{ color: '#DDD', fontSize: 12, marginTop: 5 }}>No active tasks allotted to you.</Text>
+          </View>
+        )}
+
+        <View style={{ height: 100 }} />
+      </ScrollView>
+    </View>
   );
 }
 
@@ -1020,5 +1124,19 @@ const styles = StyleSheet.create({
   monthlyDate: { fontSize: 11, color: '#999', fontWeight: '700', marginTop: 4 },
   monthlyStats: { alignItems: 'flex-end', marginLeft: 15 },
   monthlyRatio: { fontSize: 11, color: '#666', fontWeight: '700', marginBottom: 4 },
-  monthlyPerc: { fontSize: 16, fontWeight: '900' }
+  monthlyPerc: { fontSize: 16, fontWeight: '900' },
+
+  // --- TASK CARDS ---
+  taskCard: { backgroundColor: '#FFF', borderRadius: 20, padding: 20, marginBottom: 15, borderWidth: 1, borderColor: '#F0F0F0', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 10, elevation: 1 },
+  taskHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
+  taskBadge: { paddingHorizontal: 12, paddingVertical: 4, borderRadius: 12 },
+  taskBadgeText: { color: '#FFF', fontSize: 10, fontWeight: '900', textTransform: 'uppercase' },
+  taskSubject: { fontSize: 11, fontWeight: '800', color: '#AAA', textTransform: 'uppercase' },
+  taskTitle: { fontSize: 18, fontWeight: '900', color: '#121212', marginBottom: 6 },
+  taskDesc: { fontSize: 13, color: '#666', lineHeight: 20, marginBottom: 15 },
+  taskFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingTop: 15, borderTopWidth: 1, borderTopColor: '#F5F5F5' },
+  taskDueDate: { fontSize: 11, fontWeight: '800', color: '#AAA', marginLeft: 6 },
+  taskBtnText: { fontSize: 12, fontWeight: '800', color: '#121212' },
+  attachmentPin: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#e1f5fe', padding: 10, borderRadius: 10, marginBottom: 15 },
+  attachmentText: { color: '#01579b', fontSize: 12, fontWeight: '800', marginLeft: 8 }
 });

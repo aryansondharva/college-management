@@ -41,11 +41,14 @@ const StudentDashboard = () => {
         if (!user || !user.id) return;
 
         // Connect to socket server
-        // Use the same base URL as the API but without /api
-        const socket = io(import.meta.env.VITE_API_BASE_URL.replace('/api', ''), {
-            transports: ['websocket'],
-            reconnection: true
-        });
+        const socket = io(
+            import.meta.env.VITE_API_URL?.replace('/api', '') || 
+            (window.location.hostname === 'localhost' ? 'http://localhost:5000' : ''), 
+            {
+                transports: ['websocket'],
+                reconnection: true
+            }
+        );
 
         socket.on('connect', () => {
             console.log('Real-time connection established for student:', user.id);

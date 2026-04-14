@@ -13,7 +13,7 @@ const Layout = ({ children }) => {
   };
 
   const getLinkClass = ({ isActive }) => 
-    `nav-link px-3 py-2 w-100 mb-1 border-0 rounded-0 d-flex align-items-center justify-content-between small ${isActive ? 'active' : 'text-muted fw-semi-bold'}`;
+    `nav-link px-3 py-2 w-100 mb-2 border-0 rounded-3 d-flex align-items-center justify-content-between small transition-all ${isActive ? 'active bg-primary bg-opacity-10 text-primary shadow-sm' : 'text-muted fw-semi-bold hover-bg-light'}`;
 
   const [isExpanded, setIsExpanded] = useState(false);
 
@@ -49,143 +49,154 @@ const Layout = ({ children }) => {
           {isExpanded && <span className="ms-3 fw-bold fs-4 text-primary animate-fade-in">DROP</span>}
         </div>
         
-        <div className="nav flex-column py-3 overflow-auto h-75 custom-scrollbar">
+        <div className="nav flex-column py-3 overflow-auto h-75 custom-scrollbar px-2">
+          {/* MAIN */}
           <NavLink to="/dashboard" className={getLinkClass} title={!isExpanded ? "Dashboard" : ""}>
              <div className="d-flex align-items-center">
-               <i className="bi bi-grid-fill fs-5 text-center" style={{ width: '50px' }}></i>
+               <i className="bi bi-grid-fill fs-5 text-center" style={{ width: '40px' }}></i>
                <span className={`nav-text transition-all ${isExpanded ? 'opacity-100' : 'opacity-0'}`}>Dashboard</span>
              </div>
           </NavLink>
+
+          {/* ACADEMIC MANAGEMENT */}
+          {isExpanded && <div className="sidebar-heading mt-4 mb-2 small fw-bold text-uppercase opacity-25 px-3" style={{ fontSize: '10px', letterSpacing: '1px' }}>Academic</div>}
           
           {(user?.role === 'admin') && (
             <NavLink to="/classes" className={getLinkClass} title={!isExpanded ? "Classes" : ""}>
                <div className="d-flex align-items-center">
-                 <i className="bi bi-diagram-3 fs-5 text-center" style={{ width: '50px' }}></i>
-                 <span className={`nav-text transition-all ${isExpanded ? 'opacity-100' : 'opacity-0'}`}>Classes</span>
-               </div>
-               {isExpanded && <span className="badge bg-light text-dark border small fw-bold px-2 py-1 animate-fade-in">3</span>}
-            </NavLink>
-          )}
-
-          {(user?.role === 'admin') && (
-            <NavLink to="/students" className={getLinkClass} title={!isExpanded ? "Students" : ""}>
-               <div className="d-flex align-items-center">
-                 <i className="bi bi-people fs-5 text-center" style={{ width: '50px' }}></i>
-                 <span className={`nav-text transition-all ${isExpanded ? 'opacity-100' : 'opacity-0'}`}>Students</span>
-               </div>
-               {isExpanded && <i className="bi bi-chevron-down small opacity-50 ms-auto"></i>}
-            </NavLink>
-          )}
-
-          {(user?.role === 'admin' || user?.role === 'teacher') && (
-            <NavLink to="/attendance" className={getLinkClass} title={!isExpanded ? "Attendance" : ""}>
-               <div className="d-flex align-items-center">
-                 <i className="bi bi-calendar-check fs-5 text-center" style={{ width: '50px' }}></i>
-                 <span className={`nav-text transition-all ${isExpanded ? 'opacity-100' : 'opacity-0'}`}>Attendance</span>
+                 <i className="bi bi-diagram-3 fs-5 text-center" style={{ width: '40px' }}></i>
+                 <span className={`nav-text transition-all ${isExpanded ? 'opacity-100' : 'opacity-0'}`}>Classes & Sections</span>
                </div>
             </NavLink>
           )}
-
-          <NavLink to="/attendance/report" className={getLinkClass} title={!isExpanded ? "Report" : ""}>
-             <div className="d-flex align-items-center">
-               <i className="bi bi-file-earmark-spreadsheet fs-6 text-center" style={{ width: '50px', paddingLeft: isExpanded ? '15px' : '0' }}></i>
-               <span className={`nav-text transition-all ${isExpanded ? 'opacity-100' : 'opacity-0'}`}>Report</span>
-             </div>
-          </NavLink>
-
-          {(user?.role === 'admin') && (
-            <>
-              <NavLink to="/teachers" className={getLinkClass} title={!isExpanded ? "Teachers" : ""}>
-                 <div className="d-flex align-items-center">
-                   <i className="bi bi-person-badge fs-5 text-center" style={{ width: '50px' }}></i>
-                   <span className={`nav-text transition-all ${isExpanded ? 'opacity-100' : 'opacity-0'}`}>Teachers</span>
-                 </div>
-              </NavLink>
-
-              <NavLink to="/employees" className={getLinkClass} title={!isExpanded ? "Employees" : ""}>
-                 <div className="d-flex align-items-center">
-                   <i className="bi bi-briefcase fs-5 text-center" style={{ width: '50px' }}></i>
-                   <span className={`nav-text transition-all ${isExpanded ? 'opacity-100' : 'opacity-0'}`}>Employees</span>
-                 </div>
-              </NavLink>
-            </>
-          )}
-
-          {(hasPermission('view marks') || hasPermission('save marks')) && (
-            <>
-              <NavLink to="/exams" className={getLinkClass} title={!isExpanded ? "Exams / Grades" : ""}>
-                 <div className="d-flex align-items-center">
-                   <i className="bi bi-pencil-square fs-5 text-center" style={{ width: '50px' }}></i>
-                   <span className={`nav-text transition-all ${isExpanded ? 'opacity-100' : 'opacity-0'}`}>Exams / Grades</span>
-                 </div>
-                 {isExpanded && <i className="bi bi-chevron-down small opacity-50 ms-auto"></i>}
-              </NavLink>
-              <NavLink to="/admit-cards" className={getLinkClass} title={!isExpanded ? "Admit Cards" : ""}>
-                 <div className="d-flex align-items-center">
-                   <i className="bi bi-card-heading fs-6 text-center" style={{ width: '50px', paddingLeft: isExpanded ? '15px' : '0' }}></i>
-                   <span className={`nav-text transition-all ${isExpanded ? 'opacity-100' : 'opacity-0'}`}>Admit Cards</span>
-                 </div>
-              </NavLink>
-              <NavLink to="/payslips" className={getLinkClass} title={!isExpanded ? "Payslips" : ""}>
-                 <div className="d-flex align-items-center">
-                   <i className="bi bi-receipt fs-6 text-center" style={{ width: '50px', paddingLeft: isExpanded ? '15px' : '0' }}></i>
-                   <span className={`nav-text transition-all ${isExpanded ? 'opacity-100' : 'opacity-0'}`}>Payslips</span>
-                 </div>
-              </NavLink>
-            </>
-          )}
-
-          <NavLink to="/notices" className={getLinkClass} title={!isExpanded ? "Notice" : ""}>
-             <div className="d-flex align-items-center">
-               <i className="bi bi-megaphone fs-5 text-center" style={{ width: '50px' }}></i>
-               <span className={`nav-text transition-all ${isExpanded ? 'opacity-100' : 'opacity-0'}`}>Notice</span>
-             </div>
-          </NavLink>
-
-          <NavLink to="/calendar" className={getLinkClass} title={!isExpanded ? "Event" : ""}>
-             <div className="d-flex align-items-center">
-               <i className="bi bi-calendar-event fs-5 text-center" style={{ width: '50px' }}></i>
-               <span className={`nav-text transition-all ${isExpanded ? 'opacity-100' : 'opacity-0'}`}>Event</span>
-             </div>
-          </NavLink>
 
           <NavLink to="/syllabus" className={getLinkClass} title={!isExpanded ? "Syllabus" : ""}>
              <div className="d-flex align-items-center">
-               <i className="bi bi-file-earmark-pdf fs-5 text-center" style={{ width: '50px' }}></i>
+               <i className="bi bi-file-earmark-pdf fs-5 text-center" style={{ width: '40px' }}></i>
                <span className={`nav-text transition-all ${isExpanded ? 'opacity-100' : 'opacity-0'}`}>Syllabus</span>
              </div>
           </NavLink>
 
           <NavLink to="/routines" className={getLinkClass} title={!isExpanded ? "Routine" : ""}>
              <div className="d-flex align-items-center">
-               <i className="bi bi-calendar3 fs-5 text-center" style={{ width: '50px' }}></i>
-               <span className={`nav-text transition-all ${isExpanded ? 'opacity-100' : 'opacity-0'}`}>Routine</span>
+               <i className="bi bi-calendar3 fs-5 text-center" style={{ width: '40px' }}></i>
+               <span className={`nav-text transition-all ${isExpanded ? 'opacity-100' : 'opacity-0'}`}>Class Routines</span>
+             </div>
+          </NavLink>
+
+          {hasPermission('promote students') && (
+            <NavLink to="/promotions" className={getLinkClass} title={!isExpanded ? "Promotion" : ""}>
+               <div className="d-flex align-items-center">
+                 <i className="bi bi-arrow-up-circle fs-5 text-center" style={{ width: '40px' }}></i>
+                 <span className={`nav-text transition-all ${isExpanded ? 'opacity-100' : 'opacity-0'}`}>Student Promotion</span>
+               </div>
+            </NavLink>
+          )}
+
+          {/* HR & USERS */}
+          {isExpanded && <div className="sidebar-heading mt-4 mb-2 small fw-bold text-uppercase opacity-25 px-3" style={{ fontSize: '10px', letterSpacing: '1px' }}>Human Resources</div>}
+          
+          {(user?.role === 'admin') && (
+            <NavLink to="/students" className={getLinkClass} title={!isExpanded ? "Students" : ""}>
+               <div className="d-flex align-items-center">
+                 <i className="bi bi-people fs-5 text-center" style={{ width: '40px' }}></i>
+                 <span className={`nav-text transition-all ${isExpanded ? 'opacity-100' : 'opacity-0'}`}>Students</span>
+               </div>
+            </NavLink>
+          )}
+
+          {(user?.role === 'admin') && (
+            <>
+              <NavLink to="/teachers" className={getLinkClass} title={!isExpanded ? "Teachers" : ""}>
+                 <div className="d-flex align-items-center">
+                   <i className="bi bi-person-badge fs-5 text-center" style={{ width: '40px' }}></i>
+                   <span className={`nav-text transition-all ${isExpanded ? 'opacity-100' : 'opacity-0'}`}>Teachers</span>
+                 </div>
+              </NavLink>
+
+              <NavLink to="/employees" className={getLinkClass} title={!isExpanded ? "Employees" : ""}>
+                 <div className="d-flex align-items-center">
+                   <i className="bi bi-briefcase fs-5 text-center" style={{ width: '40px' }}></i>
+                   <span className={`nav-text transition-all ${isExpanded ? 'opacity-100' : 'opacity-0'}`}>Staff & Employees</span>
+                 </div>
+              </NavLink>
+            </>
+          )}
+
+          {/* OPERATIONS */}
+          {isExpanded && <div className="sidebar-heading mt-4 mb-2 small fw-bold text-uppercase opacity-25 px-3" style={{ fontSize: '10px', letterSpacing: '1px' }}>Operations</div>}
+          
+          {(user?.role === 'admin' || user?.role === 'teacher') && (
+            <NavLink to="/attendance" className={getLinkClass} title={!isExpanded ? "Attendance" : ""}>
+               <div className="d-flex align-items-center">
+                 <i className="bi bi-calendar-check fs-5 text-center" style={{ width: '40px' }}></i>
+                 <span className={`nav-text transition-all ${isExpanded ? 'opacity-100' : 'opacity-0'}`}>Daily Attendance</span>
+               </div>
+            </NavLink>
+          )}
+
+          <NavLink to="/attendance/report" className={getLinkClass} title={!isExpanded ? "Report" : ""}>
+             <div className="d-flex align-items-center">
+               <i className="bi bi-file-earmark-spreadsheet fs-5 text-center" style={{ width: '40px' }}></i>
+               <span className={`nav-text transition-all ${isExpanded ? 'opacity-100' : 'opacity-0'}`}>Attendance Reports</span>
              </div>
           </NavLink>
 
           <NavLink to="/assignments" className={getLinkClass} title={!isExpanded ? "Assignments" : ""}>
              <div className="d-flex align-items-center">
-               <i className="bi bi-file-earmark-text fs-5 text-center" style={{ width: '50px' }}></i>
-               <span className={`nav-text transition-all ${isExpanded ? 'opacity-100' : 'opacity-0'}`}>Assignments</span>
+               <i className="bi bi-file-earmark-text fs-5 text-center" style={{ width: '40px' }}></i>
+               <span className={`nav-text transition-all ${isExpanded ? 'opacity-100' : 'opacity-0'}`}>Task Allocation</span>
              </div>
           </NavLink>
 
-          <hr className="mx-3 opacity-10 my-3" />
+          {(hasPermission('view marks') || hasPermission('save marks')) && (
+            <>
+              <NavLink to="/exams" className={getLinkClass} title={!isExpanded ? "Exams / Grades" : ""}>
+                 <div className="d-flex align-items-center">
+                   <i className="bi bi-pencil-square fs-5 text-center" style={{ width: '40px' }}></i>
+                   <span className={`nav-text transition-all ${isExpanded ? 'opacity-100' : 'opacity-0'}`}>Examinations</span>
+                 </div>
+              </NavLink>
+              <NavLink to="/admit-cards" className={getLinkClass} title={!isExpanded ? "Admit Cards" : ""}>
+                 <div className="d-flex align-items-center">
+                   <i className="bi bi-card-heading fs-5 text-center" style={{ width: '40px' }}></i>
+                   <span className={`nav-text transition-all ${isExpanded ? 'opacity-100' : 'opacity-0'}`}>Admit Cards</span>
+                 </div>
+              </NavLink>
+              <NavLink to="/payslips" className={getLinkClass} title={!isExpanded ? "Payslips" : ""}>
+                 <div className="d-flex align-items-center">
+                   <i className="bi bi-receipt fs-5 text-center" style={{ width: '40px' }}></i>
+                   <span className={`nav-text transition-all ${isExpanded ? 'opacity-100' : 'opacity-0'}`}>Payroll & Payslips</span>
+                 </div>
+              </NavLink>
+            </>
+          )}
 
+          {/* COMMUNICATION */}
+          {isExpanded && <div className="sidebar-heading mt-4 mb-2 small fw-bold text-uppercase opacity-25 px-3" style={{ fontSize: '10px', letterSpacing: '1px' }}>Communication</div>}
+          
+          <NavLink to="/notices" className={getLinkClass} title={!isExpanded ? "Notice" : ""}>
+             <div className="d-flex align-items-center">
+               <i className="bi bi-megaphone fs-5 text-center" style={{ width: '40px' }}></i>
+               <span className={`nav-text transition-all ${isExpanded ? 'opacity-100' : 'opacity-0'}`}>Notice Board</span>
+             </div>
+          </NavLink>
+
+          <NavLink to="/calendar" className={getLinkClass} title={!isExpanded ? "Event" : ""}>
+             <div className="d-flex align-items-center">
+               <i className="bi bi-calendar-event fs-5 text-center" style={{ width: '40px' }}></i>
+               <span className={`nav-text transition-all ${isExpanded ? 'opacity-100' : 'opacity-0'}`}>Events & Holidays</span>
+             </div>
+          </NavLink>
+
+          {/* SETTINGS */}
+          {isExpanded && <div className="sidebar-heading mt-4 mb-2 small fw-bold text-uppercase opacity-25 px-3" style={{ fontSize: '10px', letterSpacing: '1px' }}>Admin</div>}
+          
           {(user?.role === 'admin') && (
             <NavLink to="/settings" className={getLinkClass} title={!isExpanded ? "Academic" : ""}>
                <div className="d-flex align-items-center">
-                 <i className="bi bi-tools fs-5 text-center" style={{ width: '50px' }}></i>
-                 <span className={`nav-text transition-all ${isExpanded ? 'opacity-100' : 'opacity-0'}`}>Academic</span>
-               </div>
-            </NavLink>
-          )}
-
-          {hasPermission('promote students') && (
-            <NavLink to="/promotions" className={getLinkClass} title={!isExpanded ? "Promotion" : ""}>
-               <div className="d-flex align-items-center">
-                 <i className="bi bi-arrow-up-circle fs-5 text-center" style={{ width: '50px' }}></i>
-                 <span className={`nav-text transition-all ${isExpanded ? 'opacity-100' : 'opacity-0'}`}>Promotion</span>
+                 <i className="bi bi-tools fs-5 text-center" style={{ width: '40px' }}></i>
+                 <span className={`nav-text transition-all ${isExpanded ? 'opacity-100' : 'opacity-0'}`}>System Settings</span>
                </div>
             </NavLink>
           )}
