@@ -85,6 +85,8 @@ export default function App() {
         }
       } catch (e) {
         console.error(e);
+      } finally {
+        setAppLoading(false);
       }
     };
     checkLogin();
