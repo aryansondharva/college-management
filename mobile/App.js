@@ -96,26 +96,38 @@ export default function App() {
 
   useEffect(() => {
     if (user) {
+      // Load Home Data first
       fetchAttendance();
+      
+      // Real-time connection
+      const newSocket = io(SOCKET_URL, {
+        transports: ['websocket'],
+        reconnection: true,
+        reconnectionDelay: 1000
+      });
 
-      // Real-time connection (Live Render)
-      const socket = io(SOCKET_URL);
-
-      socket.on(`attendance-updated-class-${user?.class_id}`, (data) => {
-        console.log('Class attendance update received!');
+      newSocket.on(`attendance-updated-class-${user?.class_id}`, () => fetchAttendance());
+      newSocket.on(`attendance-updated-${user?.id}`, () => {
+        Alert.alert("Update", "Your attendance was updated.");
         fetchAttendance();
       });
 
-      socket.on(`attendance-updated-${user?.id}`, (data) => {
-        Alert.alert("Attendance Update!", "Admin has updated your attendance.");
-        fetchAttendance();
-      });
+      setSocket(newSocket);
 
       return () => {
-        socket.disconnect();
+        newSocket.disconnect();
       };
     }
   }, [user]);
+
+  // Lazy Load Chat/Assignments only when needed
+  useEffect(() => {
+    if (user) {
+      if (currentTab === 'chat') fetchContacts();
+      if (currentTab === 'assignments') fetchAssignments();
+    }
+  }, [currentTab, user]);
+
 
   useEffect(() => {
     if (user) {
@@ -319,10 +331,10 @@ export default function App() {
     return () => clearTimeout(timer);
   }, [introComplete]);
 
-  // --- ISOLATED INTRO SCREEN ---
+  // --- OPTIMIZED INTRO ---
   if (!introComplete) {
     return (
-      <View style={{ flex: 1, backgroundColor: '#000' }}>
+      <View style={{ flex: 1, backgroundColor: '#000', justifyContent: 'center' }}>
         <StatusBar hidden />
         <Video
           source={require('./assets/drop.mp4')}
@@ -330,18 +342,9 @@ export default function App() {
           resizeMode={ResizeMode.COVER}
           shouldPlay
           isLooping={false}
-          onPlaybackStatusUpdate={(status) => {
-            if (status.didJustFinish) setIntroComplete(true);
-          }}
-          onError={() => setIntroComplete(true)} // Fail-safe
+          onPlaybackStatusUpdate={(s) => { if (s.didJustFinish) setIntroComplete(true); }}
+          onError={() => setIntroComplete(true)}
         />
-        {/* Skip Button for convenience */}
-        <TouchableOpacity 
-          style={{ position: 'absolute', bottom: 50, right: 30, backgroundColor: 'rgba(255,255,255,0.1)', padding: 10, borderRadius: 20 }}
-          onPress={() => setIntroComplete(true)}
-        >
-          <Text style={{ color: '#FFF', fontSize: 12 }}>Skip Intro</Text>
-        </TouchableOpacity>
       </View>
     );
   }
