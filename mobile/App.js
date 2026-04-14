@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   StyleSheet,
   Text,
@@ -57,6 +57,11 @@ export default function App() {
   const [socket, setSocket] = useState(null);
   const [chatText, setChatText] = useState('');
   const [introComplete, setIntroComplete] = useState(false);
+  const [introVideoFailed, setIntroVideoFailed] = useState(false);
+
+  // Intro animation values
+  const introOpacity = useRef(new Animated.Value(0)).current;
+  const introScale = useRef(new Animated.Value(0.5)).current;
 
 
   // Profile Form States
@@ -66,27 +71,67 @@ export default function App() {
     email: '', nationality: '', religion: '', gender: ''
   });
 
+  // --- SAFE DATA FETCHERS (wrapped in try/catch to prevent crashes) ---
+  const fetchAttendance = useCallback(async () => {
+    try {
+      const [summaryRes, detailedRes] = await Promise.all([
+        client.get('/attendance/student-summary'),
+        client.get('/attendance/my-detailed-attendance')
+      ]);
+      setAttendance(summaryRes.data || { attended: 0, total: 0, percentage: 0 });
+      setDetailedAttendance(detailedRes.data || { overall: [], monthly: [] });
+    } catch (err) {
+      console.error('Failed to fetch attendance:', err?.message || err);
+      // Set safe defaults instead of crashing
+      setAttendance({ attended: 0, total: 0, percentage: 0 });
+      setDetailedAttendance({ overall: [], monthly: [] });
+    }
+  }, []);
+
+  const fetchAssignments = useCallback(async () => {
+    try {
+      const res = await client.get('/assignments');
+      setAssignments(res.data?.assignments || []);
+    } catch (err) {
+      console.error('Failed to fetch assignments:', err?.message || err);
+      setAssignments([]);
+    }
+  }, []);
+
+  const fetchContacts = useCallback(async () => {
+    try {
+      const res = await client.get('/messages/contacts');
+      setContacts(res.data?.contacts || []);
+    } catch (err) {
+      console.error('Failed to fetch contacts:', err?.message || err);
+      setContacts([]);
+    }
+  }, []);
+
+  // --- INITIAL APP CHECK (Check for existing token) ---
   useEffect(() => {
-    // Initial App Check (Check for token)
     const checkLogin = async () => {
       try {
         const token = await AsyncStorage.getItem('token');
         if (token) {
-          // Verify token or fetch user
           try {
-            const res = await client.get('/auth/me'); // Assuming there's a /me endpoint
-            setUser(res.data.user);
-            setProfileData({
-              ...res.data.user,
-              father_name: res.data.user.father_name || ''
-            });
+            const res = await client.get('/auth/me');
+            if (res.data?.user) {
+              setUser(res.data.user);
+              setProfileData({
+                ...res.data.user,
+                father_name: res.data.user.father_name || ''
+              });
+            } else {
+              await AsyncStorage.removeItem('token');
+            }
           } catch (e) {
-            console.log('Session expired');
+            console.log('Session expired or invalid token');
             await AsyncStorage.removeItem('token');
           }
         }
       } catch (e) {
-        console.error(e);
+        console.error('Login check error:', e);
       } finally {
         setAppLoading(false);
       }
@@ -94,52 +139,84 @@ export default function App() {
     checkLogin();
   }, []);
 
+  // --- SINGLE UNIFIED SOCKET + DATA LOADING (fixes duplicate socket bug) ---
   useEffect(() => {
-    if (user) {
-      // Load Home Data first
-      fetchAttendance();
-      
-      // Real-time connection
-      const newSocket = io(SOCKET_URL, {
+    if (!user) return;
+
+    // Load home data first (attendance)
+    fetchAttendance();
+
+    // Create ONE socket connection for everything
+    let newSocket = null;
+    try {
+      newSocket = io(SOCKET_URL, {
         transports: ['websocket'],
         reconnection: true,
-        reconnectionDelay: 1000
+        reconnectionDelay: 1000,
+        reconnectionAttempts: 5,
+        timeout: 10000
       });
 
-      newSocket.on(`attendance-updated-class-${user?.class_id}`, () => fetchAttendance());
+      newSocket.on('connect', () => {
+        console.log('Socket connected:', newSocket.id);
+        newSocket.emit('join', user.id);
+      });
+
+      newSocket.on('connect_error', (err) => {
+        console.log('Socket connection error:', err.message);
+      });
+
+      // Attendance real-time updates
+      newSocket.on(`attendance-updated-class-${user?.class_id}`, () => {
+        fetchAttendance();
+      });
       newSocket.on(`attendance-updated-${user?.id}`, () => {
         Alert.alert("Update", "Your attendance was updated.");
         fetchAttendance();
       });
 
-      setSocket(newSocket);
-
-      return () => {
-        newSocket.disconnect();
-      };
-    }
-  }, [user]);
-
-  // Lazy Load Chat/Assignments only when needed
-  useEffect(() => {
-    if (user) {
-      if (currentTab === 'chat') fetchContacts();
-      if (currentTab === 'assignments') fetchAssignments();
-    }
-  }, [currentTab, user]);
-
-
-  useEffect(() => {
-    if (user) {
-      registerForPushNotificationsAsync().then(token => {
-        if (token) {
-          client.post('/users/push-token', { token })
-            .then(() => console.log('Push token saved to backend'))
-            .catch(err => console.error('Failed to save push token:', err));
+      // Chat real-time updates
+      newSocket.on('receive_message', (msg) => {
+        if (msg) {
+          setChatMessages(prev => [...prev, msg]);
         }
       });
 
-      const notificationListener = Notifications?.addNotificationReceivedListener?.(notification => {
+      setSocket(newSocket);
+    } catch (socketErr) {
+      console.error('Socket initialization error:', socketErr);
+    }
+
+    return () => {
+      if (newSocket) {
+        try { newSocket.disconnect(); } catch (e) { /* ignore cleanup errors */ }
+      }
+    };
+  }, [user?.id]); // Only re-run when user ID changes, not on every user object change
+
+  // --- LAZY LOAD: Fetch tab data only when needed (fixes duplicate fetch bug) ---
+  useEffect(() => {
+    if (!user) return;
+    if (currentTab === 'chat') fetchContacts();
+    if (currentTab === 'schedule') fetchAssignments();
+  }, [currentTab, user?.id]);
+
+  // --- PUSH NOTIFICATIONS ---
+  useEffect(() => {
+    if (!user) return;
+
+    registerForPushNotificationsAsync().then(token => {
+      if (token) {
+        client.post('/users/push-token', { token })
+          .then(() => console.log('Push token saved to backend'))
+          .catch(err => console.error('Failed to save push token:', err?.message));
+      }
+    }).catch(err => {
+      console.error('Push notification registration error:', err?.message);
+    });
+
+    const notificationListener = Notifications?.addNotificationReceivedListener?.(notification => {
+      try {
         const newNotif = {
           id: notification?.request?.identifier || Math.random().toString(),
           title: notification?.request?.content?.title || 'System Alert',
@@ -149,64 +226,73 @@ export default function App() {
           date: new Date().toLocaleDateString()
         };
         setNotificationsHistory(prev => [newNotif, ...prev].slice(0, 10));
-      });
+      } catch (e) {
+        console.error('Notification listener error:', e);
+      }
+    });
 
-      const responseListener = Notifications?.addNotificationResponseReceivedListener?.(response => {
+    const responseListener = Notifications?.addNotificationResponseReceivedListener?.(response => {
+      try {
         if (response?.notification?.request?.content?.data?.type === 'attendance') {
            setCurrentTab('attendance');
         }
-      });
+      } catch (e) {
+        console.error('Notification response listener error:', e);
+      }
+    });
 
-      return () => {
-        notificationListener?.remove?.();
-        responseListener?.remove?.();
-      };
-    }
-  }, [user, introComplete]); // Added introComplete to dependency
+    return () => {
+      notificationListener?.remove?.();
+      responseListener?.remove?.();
+    };
+  }, [user?.id]);
 
-  useEffect(() => {
-    if (user) {
-      fetchAssignments();
-      fetchContacts();
-      
-      // Initialize Socket
-      const newSocket = io(SOCKET_URL, {
-        transports: ['websocket']
-      });
-
-      newSocket.on('connect', () => {
-        console.log('Chat socket connected');
-        newSocket.emit('join', user.id);
-      });
-
-      newSocket.on('receive_message', (msg) => {
-        // Only append if it belongs to the active chat
-        setChatMessages(prev => [...prev, msg]);
-      });
-
-      setSocket(newSocket);
-
-      return () => newSocket.disconnect();
-    }
-  }, [user]);
-
-  const fetchContacts = async () => {
+  async function registerForPushNotificationsAsync() {
+    let token;
     try {
-      const res = await client.get('/messages/contacts');
-      setContacts(res.data.contacts);
+      if (Device.isDevice) {
+        const { status: existingStatus } = await Notifications.getPermissionsAsync();
+        let finalStatus = existingStatus;
+        if (existingStatus !== 'granted') {
+          const { status } = await Notifications.requestPermissionsAsync();
+          finalStatus = status;
+        }
+        if (finalStatus !== 'granted') {
+          console.log('Push notification permissions not granted');
+          return;
+        }
+        
+        // Use the correct project ID from app.json
+        const projectId = Constants?.expoConfig?.extra?.eas?.projectId || 'f1700831-6a33-498e-9058-501039a99a14';
+        token = (await Notifications.getExpoPushTokenAsync({ projectId })).data;
+        console.log('Expo Push Token:', token);
+      } else {
+        console.log('Must use physical device for Push Notifications');
+      }
+
+      if (Platform.OS === 'android') {
+        await Notifications.setNotificationChannelAsync('default', {
+          name: 'default',
+          importance: Notifications.AndroidImportance.MAX,
+          vibrationPattern: [0, 250, 250, 250],
+          lightColor: '#FF231F7C',
+        });
+      }
     } catch (err) {
-      console.error('Failed to fetch contacts:', err);
+      console.error('Push token registration error:', err?.message);
     }
-  };
+
+    return token;
+  }
 
   const openChat = async (contact) => {
     setActiveChat(contact);
     setChatMessages([]);
     try {
       const res = await client.get(`/messages/${contact.id}`);
-      setChatMessages(res.data.messages);
+      setChatMessages(res.data?.messages || []);
     } catch (err) {
-      console.error('Failed to fetch messages:', err);
+      console.error('Failed to fetch messages:', err?.message || err);
     }
   };
 
@@ -226,62 +312,6 @@ export default function App() {
     setChatText('');
   };
 
-  async function registerForPushNotificationsAsync() {
-    let token;
-    if (Device.isDevice) {
-      const { status: existingStatus } = await Notifications.getPermissionsAsync();
-      let finalStatus = existingStatus;
-      if (existingStatus !== 'granted') {
-        const { status } = await Notifications.requestPermissionsAsync();
-        finalStatus = status;
-      }
-      if (finalStatus !== 'granted') {
-        alert('Failed to get push token for push notification!');
-        return;
-      }
-      
-      const projectId = Constants?.expoConfig?.extra?.eas?.projectId || 'e711222f-37a2-4217-ac3c-a612e6222d01';
-      token = (await Notifications.getExpoPushTokenAsync({ projectId })).data;
-      console.log('Expo Push Token:', token);
-    } else {
-
-      console.log('Must use physical device for Push Notifications');
-    }
-
-    if (Platform.OS === 'android') {
-      Notifications.setNotificationChannelAsync('default', {
-        name: 'default',
-        importance: Notifications.AndroidImportance.MAX,
-        vibrationPattern: [0, 250, 250, 250],
-        lightColor: '#FF231F7C',
-      });
-    }
-
-    return token;
-  }
-
-  const fetchAttendance = async () => {
-    try {
-      const [summaryRes, detailedRes] = await Promise.all([
-        client.get('/attendance/student-summary'),
-        client.get('/attendance/my-detailed-attendance')
-      ]);
-      setAttendance(summaryRes.data);
-      setDetailedAttendance(detailedRes.data);
-    } catch (err) {
-      console.error('Failed to fetch attendance:', err);
-    }
-  };
-
-  const fetchAssignments = async () => {
-    try {
-      const res = await client.get('/assignments');
-      setAssignments(res.data.assignments);
-    } catch (err) {
-      console.error('Failed to fetch assignments:', err);
-    }
-  };
-
   const handleLogin = async () => {
     if (!identity || !password) return setError('Please fill all fields');
 
@@ -291,6 +321,11 @@ export default function App() {
       const res = await client.post('/auth/login', { identity, password });
       const { token, user: userData } = res.data;
 
+      if (!token || !userData) {
+        setError('Invalid server response. Try again.');
+        return;
+      }
+
       await AsyncStorage.setItem('token', token);
       setUser(userData);
       setProfileData({
@@ -298,7 +333,7 @@ export default function App() {
         father_name: userData.father_name || ''
       });
     } catch (err) {
-      setError(err.response?.data?.message || 'Error');
+      setError(err.response?.data?.message || 'Login failed. Check your credentials.');
     } finally {
       setLoading(false);
     }
@@ -314,15 +349,33 @@ export default function App() {
           text: 'Log Out',
           style: 'destructive',
           onPress: async () => {
-            await AsyncStorage.removeItem('token');
-            setUser(null);
-            setCurrentTab('home');
+            try {
+              if (socket) {
+                socket.disconnect();
+                setSocket(null);
+              }
+              await AsyncStorage.removeItem('token');
+              setUser(null);
+              setCurrentTab('home');
+              setAttendance(null);
+              setDetailedAttendance({ overall: [], monthly: [] });
+              setAssignments([]);
+              setContacts([]);
+              setChatMessages([]);
+              setActiveChat(null);
+            } catch (e) {
+              console.error('Logout error:', e);
+              // Force logout even if cleanup fails
+              await AsyncStorage.removeItem('token');
+              setUser(null);
+            }
           }
         }
       ]
     );
   };
 
+  // --- INTRO SCREEN LOGIC ---
   useEffect(() => {
     // Fail-safe: Skip intro if video hangs for more than 4 seconds
     const timer = setTimeout(() => {
@@ -331,8 +384,49 @@ export default function App() {
     return () => clearTimeout(timer);
   }, [introComplete]);
 
-  // --- OPTIMIZED INTRO ---
+  // Animated fallback intro (when video fails)
+  useEffect(() => {
+    if (introVideoFailed && !introComplete) {
+      Animated.parallel([
+        Animated.timing(introOpacity, {
+          toValue: 1,
+          duration: 600,
+          useNativeDriver: true,
+        }),
+        Animated.spring(introScale, {
+          toValue: 1,
+          friction: 4,
+          useNativeDriver: true,
+        }),
+      ]).start();
+
+      // Auto-advance after animation
+      const autoSkip = setTimeout(() => setIntroComplete(true), 2500);
+      return () => clearTimeout(autoSkip);
+    }
+  }, [introVideoFailed, introComplete]);
+
+  // --- INTRO SCREEN ---
   if (!introComplete) {
+    // If video failed, show animated logo fallback
+    if (introVideoFailed) {
+      return (
+        <View style={{ flex: 1, backgroundColor: '#000', justifyContent: 'center', alignItems: 'center' }}>
+          <StatusBar hidden />
+          <Animated.View style={{ opacity: introOpacity, transform: [{ scale: introScale }], alignItems: 'center' }}>
+            <Image
+              source={require('./assets/logo.png')}
+              style={{ width: 120, height: 120, marginBottom: 20 }}
+              resizeMode="contain"
+            />
+            <Text style={{ color: '#FFF', fontSize: 32, fontWeight: '900', letterSpacing: 2 }}>Drop</Text>
+            <Text style={{ color: '#444', fontSize: 12, fontWeight: '700', marginTop: 8 }}>SMART CAMPUS</Text>
+          </Animated.View>
+        </View>
+      );
+    }
+
+    // Try video first
     return (
       <View style={{ flex: 1, backgroundColor: '#000', justifyContent: 'center' }}>
         <StatusBar hidden />
@@ -342,14 +436,22 @@ export default function App() {
           resizeMode={ResizeMode.COVER}
           shouldPlay
           isLooping={false}
-          onPlaybackStatusUpdate={(s) => { if (s.didJustFinish) setIntroComplete(true); }}
-          onError={() => setIntroComplete(true)}
+          onPlaybackStatusUpdate={(s) => {
+            if (s.didJustFinish) setIntroComplete(true);
+          }}
+          onError={(err) => {
+            console.log('Video playback error, switching to fallback:', err);
+            setIntroVideoFailed(true);
+          }}
+          onLoad={() => {
+            console.log('Intro video loaded successfully');
+          }}
         />
       </View>
     );
   }
 
-  // --- MAIN APP ENTRY ---
+  // --- MAIN APP LOADING ---
   if (appLoading) return (
     <View style={styles.loadingOverlay}>
       <StatusBar barStyle="light-content" />
@@ -357,6 +459,7 @@ export default function App() {
         <Image 
           source={require('./assets/logo.png')} 
           style={{ width: 80, height: 80, marginBottom: 30, opacity: 0.8 }} 
+          resizeMode="contain"
         />
         <ActivityIndicator size="large" color="#FFF" />
         <Text style={[styles.loadingMsg, { marginTop: 20 }]}>Connecting to infrastructure...</Text>
@@ -371,7 +474,9 @@ export default function App() {
       Alert.alert('Success', 'Profile updated successfully!');
       // Refresh user data
       const res = await client.get('/auth/me');
-      setUser(res.data.user);
+      if (res.data?.user) {
+        setUser(res.data.user);
+      }
     } catch (err) {
       Alert.alert('Error', err.response?.data?.message || 'Failed to update profile');
     } finally {
@@ -397,8 +502,6 @@ export default function App() {
     </View>
   );
 
-  if (appLoading) return <LoadingScreen />;
-
   if (!user) {
     return (
       <View style={styles.loginContainer}>
@@ -409,7 +512,8 @@ export default function App() {
           <View style={{ alignItems: 'center', marginBottom: 20 }}>
             <Image
               source={require('./assets/logo.png')}
-              style={{ width: 80, height: 80, objectFit: 'contain' }}
+              style={{ width: 80, height: 80 }}
+              resizeMode="contain"
             />
           </View>
 
@@ -458,14 +562,19 @@ export default function App() {
             </View>
 
             <TouchableOpacity
-              style={styles.modernLoginBtn}
+              style={[styles.modernLoginBtn, loading && { opacity: 0.7 }]}
               onPress={handleLogin}
               disabled={loading}
             >
-              <Text style={styles.loginBtnTxtFinal}>Sign In</Text>
+              {loading ? (
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  <ActivityIndicator color="#FFF" style={{ marginRight: 10 }} />
+                  <Text style={styles.loginBtnTxtFinal}>Verifying...</Text>
+                </View>
+              ) : (
+                <Text style={styles.loginBtnTxtFinal}>Sign In</Text>
+              )}
             </TouchableOpacity>
-
-            {loading && <LoadingScreen message="Verifying Identity..." />}
 
             <View style={styles.socialHeaderRow}>
               <Text style={styles.socialText}>Or sign in with</Text>
@@ -572,11 +681,11 @@ export default function App() {
                 const tot = arr.reduce((s, sub) => s + (sub.total || 0), 0);
                 const att = arr.reduce((s, sub) => s + (sub.attended || 0), 0);
                 const p = tot > 0 ? Math.round((att / tot) * 100) : 0;
-                const needed = Math.max(0, Math.ceil((0.75 * tot - att) / 1)); // Fixed divisor to 1 to avoid large numbers if no data
+                const needed = Math.max(0, Math.ceil((0.75 * tot - att) / 1));
                 return (
                   <>
                     <View style={styles.progressContainer}>
-                      <View style={[styles.progressBar, { width: `${p}%`, backgroundColor: p >= 75 ? '#2ecc71' : '#FF5A5F' }]} />
+                      <View style={[styles.progressBar, { width: `${Math.min(p, 100)}%`, backgroundColor: p >= 75 ? '#2ecc71' : '#FF5A5F' }]} />
                     </View>
                     {needed > 0 && tot > 0 && (
                       <View style={styles.smallAlert}>
@@ -607,7 +716,7 @@ export default function App() {
             )}
 
             <Text style={styles.sectionHeader}>Subject-wise Attendance</Text>
-            {detailedAttendance.overall.map((sub) => {
+            {(detailedAttendance?.overall || []).map((sub) => {
               const p = sub.total > 0 ? Math.round((sub.attended / sub.total) * 100) : 0;
               return (
                 <View key={sub.course_id} style={[styles.monthlyRow, { marginBottom: 10, borderRadius: 16, borderWidth: 1, borderColor: '#F0F0F0', padding: 16 }]}>
@@ -625,7 +734,7 @@ export default function App() {
                 </View>
               );
             })}
-            {detailedAttendance.overall.length === 0 && (
+            {(detailedAttendance?.overall || []).length === 0 && (
               <View style={{ padding: 30, alignItems: 'center' }}>
                 <Text style={{ color: '#CCC', fontWeight: '700', fontSize: 13 }}>No attendance data found.</Text>
               </View>
@@ -644,8 +753,8 @@ export default function App() {
             </TouchableOpacity>
             <Text style={styles.userName}>Attendance Report</Text>
             {(() => {
-              const tot = detailedAttendance.overall.reduce((s, sub) => s + sub.total, 0);
-              const att = detailedAttendance.overall.reduce((s, sub) => s + sub.attended, 0);
+              const tot = (detailedAttendance?.overall || []).reduce((s, sub) => s + (sub.total || 0), 0);
+              const att = (detailedAttendance?.overall || []).reduce((s, sub) => s + (sub.attended || 0), 0);
               const p = tot > 0 ? Math.round((att / tot) * 100) : 0;
               return (
                 <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 8 }}>
@@ -661,7 +770,7 @@ export default function App() {
           <ScrollView style={styles.main} showsVerticalScrollIndicator={false}>
             {/* OVERALL SEM SUMMARY — matches admin report */}
             <Text style={styles.sectionHeader}>Overall Semester Aggregate</Text>
-            {detailedAttendance.overall.map((sub) => {
+            {(detailedAttendance?.overall || []).map((sub) => {
               const p = sub.total > 0 ? Math.round((sub.attended / sub.total) * 100) : 0;
               return (
                 <View key={`overall-${sub.course_id}`} style={[styles.monthlyRow, { marginBottom: 10, borderRadius: 16, borderWidth: 1, borderColor: p >= 75 ? '#e6f7ec' : '#fbe9e9', padding: 16 }]}>
@@ -681,9 +790,9 @@ export default function App() {
             })}
 
             {/* OVERALL TOTAL ROW */}
-            {detailedAttendance.overall.length > 0 && (() => {
-              const tot = detailedAttendance.overall.reduce((s, sub) => s + sub.total, 0);
-              const att = detailedAttendance.overall.reduce((s, sub) => s + sub.attended, 0);
+            {(detailedAttendance?.overall || []).length > 0 && (() => {
+              const tot = (detailedAttendance?.overall || []).reduce((s, sub) => s + (sub.total || 0), 0);
+              const att = (detailedAttendance?.overall || []).reduce((s, sub) => s + (sub.attended || 0), 0);
               const p = tot > 0 ? Math.round((att / tot) * 100) : 0;
               return (
                 <View style={{ backgroundColor: p >= 75 ? '#e6f7ec' : '#fbe9e9', borderRadius: 16, padding: 18, marginBottom: 10, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -698,13 +807,13 @@ export default function App() {
               );
             })()}
 
-            {detailedAttendance.overall.length === 0 && (
+            {(detailedAttendance?.overall || []).length === 0 && (
               <Text style={{ textAlign: 'center', color: '#BBB', marginTop: 10, marginBottom: 20, fontWeight: '700' }}>No attendance data found. Please check with admin.</Text>
             )}
 
             {/* MONTHLY BREAKDOWN */}
             <Text style={[styles.sectionHeader, { marginTop: 20 }]}>Monthly Breakdown</Text>
-            {detailedAttendance.monthly.map((m, idx) => {
+            {(detailedAttendance?.monthly || []).map((m, idx) => {
               const p = m.total > 0 ? Math.round((m.attended / m.total) * 100) : 0;
               return (
                 <View key={idx} style={styles.monthlyRow}>
@@ -719,7 +828,7 @@ export default function App() {
                 </View>
               );
             })}
-            {detailedAttendance.monthly.length === 0 && (
+            {(detailedAttendance?.monthly || []).length === 0 && (
               <Text style={{ textAlign: 'center', color: '#BBB', marginTop: 10, fontWeight: '700' }}>No monthly data found.</Text>
             )}
             <View style={{ height: 40 }} />
@@ -958,10 +1067,10 @@ function ChatScreen({ contacts, activeChat, setActiveChat, chatMessages, openCha
                   <ChevronLeft size={24} color="#121212" />
                </TouchableOpacity>
                <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: '#f0f0f0', marginRight: 12, justifyContent: 'center', alignItems: 'center' }}>
-                  <Text style={{ fontWeight: 'bold', color: '#121212' }}>{activeChat.first_name[0]}</Text>
+                  <Text style={{ fontWeight: 'bold', color: '#121212' }}>{activeChat?.first_name?.[0] || '?'}</Text>
                </View>
                <View>
-                  <Text style={{ fontWeight: 'bold', fontSize: 16 }}>{activeChat.first_name} {activeChat.last_name}</Text>
+                  <Text style={{ fontWeight: 'bold', fontSize: 16 }}>{activeChat?.first_name || ''} {activeChat?.last_name || ''}</Text>
                   <Text style={{ fontSize: 12, color: '#2ecc71' }}>Online</Text>
                </View>
             </View>
@@ -992,7 +1101,7 @@ function ChatScreen({ contacts, activeChat, setActiveChat, chatMessages, openCha
                 }}>
                   <Text style={{ color: isMine ? '#FFF' : '#121212', fontSize: 15 }}>{m.content}</Text>
                   <Text style={{ color: isMine ? '#AAA' : '#BBB', fontSize: 9, marginTop: 4, alignSelf: 'flex-end' }}>
-                    {new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    {m.created_at ? new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
                   </Text>
                 </View>
               );
@@ -1032,10 +1141,10 @@ function ChatScreen({ contacts, activeChat, setActiveChat, chatMessages, openCha
         {contacts.map(c => (
           <TouchableOpacity key={c.id} style={styles.contactCard} onPress={() => openChat(c)}>
             <View style={styles.contactAvatar}>
-              <Text style={styles.avatarTxt}>{c.first_name[0]}</Text>
+              <Text style={styles.avatarTxt}>{c?.first_name?.[0] || '?'}</Text>
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={styles.contactName}>{c.first_name} {c.last_name}</Text>
+              <Text style={styles.contactName}>{c?.first_name || ''} {c?.last_name || ''}</Text>
               <Text style={styles.contactRole}>Student • Classmate</Text>
             </View>
             <View style={styles.onlineDot} />
@@ -1109,7 +1218,7 @@ function AssignmentsScreen({ assignments, loading }) {
               <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                 <Clock size={14} color="#AAA" />
                 <Text style={styles.taskDueDate}>
-                  Due: {new Date(task.deadline).toLocaleDateString()}
+                  Due: {task.deadline ? new Date(task.deadline).toLocaleDateString() : 'N/A'}
                 </Text>
               </View>
               <TouchableOpacity style={styles.taskBtn}>

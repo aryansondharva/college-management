@@ -2,7 +2,7 @@ const express = require('express');
 const db = require('../config/database');
 const { authenticate } = require('../middleware/auth');
 const { can } = require('../middleware/permissions');
-const { sendPushNotifications } = require('../utils/notifications');
+const { sendPushNotification } = require('../utils/notifications');
 
 
 const router = express.Router();
@@ -115,7 +115,7 @@ router.post('/', authenticate, async (req, res) => {
         const today = new Date().toLocaleDateString();
 
         if (presentStudents.length > 0) {
-            await sendPushNotifications(
+            await sendPushNotification(
                 presentStudents,
                 'Attendance Taken',
                 `You were marked PRESENT for ${req.body.is_bulk_subjects ? 'your subjects' : subjectName} on ${today}`,
@@ -124,7 +124,7 @@ router.post('/', authenticate, async (req, res) => {
         }
 
         if (absentStudents.length > 0) {
-            await sendPushNotifications(
+            await sendPushNotification(
                 absentStudents,
                 'Attendance Taken',
                 `You were marked ABSENT for ${req.body.is_bulk_subjects ? 'your subjects' : subjectName} on ${today}`,
