@@ -58,6 +58,8 @@ export default function App() {
   const [chatMessages, setChatMessages] = useState([]);
   const [socket, setSocket] = useState(null);
   const [chatText, setChatText] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searching, setSearching] = useState(false);
   const [introComplete, setIntroComplete] = useState(false);
   const [introVideoFailed, setIntroVideoFailed] = useState(false);
 
@@ -102,13 +104,29 @@ export default function App() {
 
   const fetchContacts = useCallback(async () => {
     try {
-      const res = await client.get('/messages/contacts');
+      const res = await client.get('/messages/inbox');
       setContacts(res.data?.contacts || []);
     } catch (err) {
-      console.error('Failed to fetch contacts:', err?.message || err);
+      console.error('Failed to fetch inbox:', err?.response?.data || err?.message || err);
       setContacts([]);
     }
   }, []);
+
+  const handleSearch = async (query) => {
+    setSearchQuery(query);
+    if (query.trim().length > 0) {
+      setSearching(true);
+      try {
+        const res = await client.get(`/messages/search-contacts?q=${query}`);
+        setContacts(res.data?.contacts || []);
+      } catch (err) {
+        console.error('Search failed:', err?.response?.data || err);
+      }
+    } else {
+      setSearching(false);
+      fetchContacts();
+    }
+  };
 
   // --- INITIAL APP CHECK (Check for existing token) ---
   useEffect(() => {
@@ -234,6 +252,7 @@ export default function App() {
       newSocket.on('receive_message', (msg) => {
         if (msg) {
           setChatMessages(prev => [...prev, msg]);
+          fetchContacts(); // Refresh inbox list on new message
         }
       });
 
@@ -365,6 +384,7 @@ export default function App() {
     // Optimistic UI update
     setChatMessages(prev => [...prev, { ...msgData, created_at: new Date().toISOString() }]);
     setChatText('');
+    fetchContacts(); // Refresh inbox list after sending
   };
 
   const handleLogin = async () => {
@@ -918,6 +938,9 @@ export default function App() {
           setChatText={setChatText}
           sendMessage={sendMessage}
           userId={user?.id}
+          searchQuery={searchQuery}
+          handleSearch={handleSearch}
+          searching={searching}
         />
       )}
       {currentTab === 'syllabus' && <ComingSoon />}
@@ -1110,7 +1133,20 @@ function ProfileScreen({ user, profileData, setProfileData, handleUpdateProfile,
   );
 }
 
-function ChatScreen({ contacts, activeChat, setActiveChat, chatMessages, openChat, chatText, setChatText, sendMessage, userId }) {
+function ChatScreen({ 
+  contacts, 
+  activeChat, 
+  setActiveChat, 
+  chatMessages, 
+  openChat, 
+  chatText, 
+  setChatText, 
+  sendMessage, 
+  userId,
+  searchQuery,
+  handleSearch,
+  searching
+}) {
   const scrollViewRef = React.useRef(null);
 
   if (activeChat) {
@@ -1118,7 +1154,10 @@ function ChatScreen({ contacts, activeChat, setActiveChat, chatMessages, openCha
       <View style={{ flex: 1, backgroundColor: '#F8F9FA' }}>
          <SafeAreaView style={{ backgroundColor: '#FFF', borderBottomWidth: 1, borderBottomColor: '#EEE' }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', padding: 15 }}>
-               <TouchableOpacity onPress={() => setActiveChat(null)} style={{ marginRight: 15 }}>
+               <TouchableOpacity onPress={() => {
+                  setActiveChat(null);
+                  handleSearch(''); // Reset search when closing chat
+               }} style={{ marginRight: 15 }}>
                   <ChevronLeft size={24} color="#121212" />
                </TouchableOpacity>
                <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: '#f0f0f0', marginRight: 12, justifyContent: 'center', alignItems: 'center' }}>
@@ -1139,6 +1178,8 @@ function ChatScreen({ contacts, activeChat, setActiveChat, chatMessages, openCha
          >
             {chatMessages.map((m, i) => {
               const isMine = m.sender_id === userId;
+              const senderName = m.sender_name || (isMine ? 'You' : `${activeChat?.first_name || ''} ${activeChat?.last_name || ''}`);
+              
               return (
                 <View key={i} style={{ 
                   alignSelf: isMine ? 'flex-end' : 'flex-start', 
@@ -1146,16 +1187,28 @@ function ChatScreen({ contacts, activeChat, setActiveChat, chatMessages, openCha
                   paddingHorizontal: 15,
                   paddingVertical: 10,
                   borderRadius: 20,
+                  borderBottomRightRadius: isMine ? 5 : 20,
+                  borderBottomLeftRadius: isMine ? 20 : 5,
                   maxWidth: '80%',
-                  marginBottom: 8,
-                  elevation: 1,
+                  marginBottom: 12,
+                  elevation: 2,
                   shadowColor: '#000',
                   shadowOffset: { width: 0, height: 1 },
                   shadowOpacity: 0.1,
                   shadowRadius: 2
                 }}>
-                  <Text style={{ color: isMine ? '#FFF' : '#121212', fontSize: 15 }}>{m.content}</Text>
-                  <Text style={{ color: isMine ? '#AAA' : '#BBB', fontSize: 9, marginTop: 4, alignSelf: 'flex-end' }}>
+                  <Text style={{ 
+                    fontSize: 10, 
+                    fontWeight: '900', 
+                    color: isMine ? '#2ecc71' : '#121212', 
+                    marginBottom: 4,
+                    textTransform: 'uppercase',
+                    letterSpacing: 0.5
+                  }}>
+                    {senderName}
+                  </Text>
+                  <Text style={{ color: isMine ? '#FFF' : '#121212', fontSize: 15, lineHeight: 20 }}>{m.content}</Text>
+                  <Text style={{ color: isMine ? '#AAA' : '#BBB', fontSize: 9, marginTop: 4, alignSelf: 'flex-end', fontWeight: '600' }}>
                     {m.created_at ? new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
                   </Text>
                 </View>
@@ -1186,31 +1239,73 @@ function ChatScreen({ contacts, activeChat, setActiveChat, chatMessages, openCha
 
   return (
     <View style={{ flex: 1, backgroundColor: '#FFF' }}>
-      <View style={[styles.header, { paddingBottom: 25 }]}>
+      <View style={[styles.header, { paddingBottom: 15 }]}>
         <Text style={styles.welcome}>Student Network</Text>
         <Text style={styles.userName}>Messages</Text>
+        
+        {/* Search Bar */}
+        <View style={{ 
+          flexDirection: 'row', 
+          alignItems: 'center', 
+          backgroundColor: '#222', 
+          borderRadius: 15, 
+          paddingHorizontal: 15, 
+          marginTop: 20 
+        }}>
+          <TextInput
+            style={{ flex: 1, color: '#FFF', height: 45, fontSize: 14 }}
+            placeholder="Search classmates to start chat..."
+            placeholderTextColor="#666"
+            value={searchQuery}
+            onChangeText={handleSearch}
+          />
+          <MessageSquare size={18} color="#666" />
+        </View>
       </View>
 
       <ScrollView style={styles.main}>
-        <Text style={[styles.sectionHeader, { marginBottom: 15 }]}>Classmates</Text>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 30, marginBottom: 15 }}>
+          <Text style={[styles.sectionHeader, { marginTop: 0, marginBottom: 0 }]}>
+            {searching ? 'Search Results' : 'Recent Conversations'}
+          </Text>
+          {searching && (
+            <TouchableOpacity onPress={() => handleSearch('')}>
+              <Text style={{ color: '#FF5A5F', fontSize: 11, fontWeight: '900' }}>CANCEL</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+
         {contacts.map(c => (
           <TouchableOpacity key={c.id} style={styles.contactCard} onPress={() => openChat(c)}>
             <View style={styles.contactAvatar}>
               <Text style={styles.avatarTxt}>{c?.first_name?.[0] || '?'}</Text>
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={styles.contactName}>{c?.first_name || ''} {c?.last_name || ''}</Text>
-              <Text style={styles.contactRole}>Student • Classmate</Text>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                <Text style={styles.contactName}>{c?.first_name || ''} {c?.last_name || ''}</Text>
+                {c.last_message_time && (
+                  <Text style={{ fontSize: 10, color: '#AAA' }}>
+                    {new Date(c.last_message_time).toLocaleDateString([], { month: 'short', day: 'numeric' })}
+                  </Text>
+                )}
+              </View>
+              <Text style={styles.contactRole} numberOfLines={1}>
+                {searching ? 'Student • Classmate' : (c.last_message || 'No messages yet')}
+              </Text>
             </View>
-            <View style={styles.onlineDot} />
+            {!searching && <View style={styles.onlineDot} />}
           </TouchableOpacity>
         ))}
 
         {contacts.length === 0 && (
           <View style={{ padding: 60, alignItems: 'center' }}>
             <MessageSquare size={50} color="#EEE" />
-            <Text style={{ color: '#BBB', fontWeight: '700', marginTop: 20 }}>No contacts found</Text>
-            <Text style={{ color: '#DDD', fontSize: 12, marginTop: 5 }}>Connect with your classmates soon.</Text>
+            <Text style={{ color: '#BBB', fontWeight: '700', marginTop: 20 }}>
+              {searching ? 'No matching classmates' : 'No conversations yet'}
+            </Text>
+            <Text style={{ color: '#DDD', fontSize: 12, marginTop: 5, textAlign: 'center' }}>
+              {searching ? 'Try a different name' : 'Use the search bar above to find classmates and start chatting.'}
+            </Text>
           </View>
         )}
       </ScrollView>

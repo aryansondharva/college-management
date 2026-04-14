@@ -133,13 +133,16 @@ io.on('connection', (socket) => {
       );
       const savedMsg = result.rows[0];
 
-      // 2. Emit to receiver
-      io.to(`user_${receiver_id}`).emit('receive_message', savedMsg);
-      
-      // 3. Send Push Notification to Receiver
+      // 2. Add sender name to message object
       const sender = await db.query('SELECT first_name, last_name FROM users WHERE id = $1', [sender_id]);
+      const senderName = sender.rows.length > 0 ? `${sender.rows[0].first_name} ${sender.rows[0].last_name}` : 'Unknown';
+      const msgWithName = { ...savedMsg, sender_name: senderName };
+
+      // 3. Emit to receiver
+      io.to(`user_${receiver_id}`).emit('receive_message', msgWithName);
+      
+      // 4. Send Push Notification to Receiver
       if (sender.rows.length > 0) {
-        const senderName = `${sender.rows[0].first_name} ${sender.rows[0].last_name}`;
         sendPushNotification(
             receiver_id, 
             `New message from ${senderName}`, 

@@ -1,0 +1,2 @@
+const db = require('./src/config/database'); 
+db.query(`SELECT DISTINCT ON (partner_id) u.id, u.first_name, u.last_name, u.photo, u.role, m.content as last_message, m.created_at as last_message_time FROM ( SELECT CASE WHEN sender_id = 1 THEN receiver_id ELSE sender_id END as partner_id, content, created_at FROM messages WHERE sender_id = 1 OR receiver_id = 1 ORDER BY created_at DESC ) m JOIN users u ON u.id = m.partner_id ORDER BY partner_id, m.created_at DESC`, []).then(res => {console.log('success'); process.exit(0)}).catch(err => {console.error(err); process.exit(1)});
