@@ -35,6 +35,8 @@ const academicSettingRoutes = require('./routes/academic_settings');
 const aiRoutes = require('./routes/ai');
 const uploadRoutes = require('./routes/uploads');
 const messageRoutes = require('./routes/messages');
+const appUpdateRoutes = require('./routes/app_updates');
+
 const path = require('path');
 const db = require('./config/database');
 const { sendPushNotification } = require('./utils/notifications');
@@ -61,6 +63,8 @@ app.use('/api/academic-settings', academicSettingRoutes);
 app.use('/api/ai', aiRoutes);
 app.use('/api/upload', uploadRoutes);
 app.use('/api/messages', messageRoutes);
+app.use('/api/app-updates', appUpdateRoutes);
+
 
 // Static file serving for uploads
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));

@@ -20,6 +20,8 @@ import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 import { io } from 'socket.io-client';
 import { Video, ResizeMode } from 'expo-av';
+import * as Updates from 'expo-updates';
+
 
 
 import { User, Lock, GraduationCap, Home, BookOpen, Calendar, Clock, AlertCircle, LogOut, MessageSquare, Send, ChevronLeft } from 'lucide-react-native';
@@ -138,6 +140,59 @@ export default function App() {
     };
     checkLogin();
   }, []);
+
+  // --- APP UPDATE CHECK ---
+  useEffect(() => {
+    const checkUpdates = async () => {
+      try {
+        // 1. Check for JS-only updates via Expo
+        const update = await Updates.checkForUpdateAsync();
+        if (update.isAvailable) {
+          Alert.alert(
+            'JS Update Available',
+            'A new patch is available. Would you like to update now?',
+            [
+              { text: 'Later', style: 'cancel' },
+              { text: 'Update Now', onPress: async () => await Updates.fetchUpdateAsync().then(() => Updates.reloadAsync()) }
+            ]
+          );
+          return; // Skip server check if Expo update is handled
+        }
+
+        // 2. Check for APK updates via custom server
+        const res = await client.get('/app-updates/latest');
+        const latestInfo = res.data;
+        
+        // Current version from Constants
+        const currentVersionCode = Constants.expoConfig.android.versionCode;
+        
+        if (latestInfo.version_code > currentVersionCode) {
+          Alert.alert(
+            'New Version Available',
+            `A new version (${latestInfo.version_name}) of Drop is available.\n\nRelease Notes: ${latestInfo.release_notes || 'Improvements and bug fixes.'}`,
+            [
+              { text: 'Update Later', style: 'cancel' },
+              { 
+                text: 'Update Now', 
+                onPress: () => {
+                  // Redirect to download URL
+                  Linking.openURL(`${SOCKET_URL}/api/app-updates/download`);
+                }
+              }
+            ]
+          );
+        }
+      } catch (e) {
+        console.log('Update check failed:', e.message);
+      }
+    };
+
+    // Check after intro is complete
+    if (introComplete) {
+       checkUpdates();
+    }
+  }, [introComplete]);
+
 
   // --- SINGLE UNIFIED SOCKET + DATA LOADING (fixes duplicate socket bug) ---
   useEffect(() => {
