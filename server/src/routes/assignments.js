@@ -19,7 +19,7 @@ router.get('/', authenticate, async (req, res) => {
             FROM assignments a
             JOIN users u ON u.id = a.created_by
             JOIN courses c ON c.id = a.course_id
-            WHERE a.class_id = (SELECT class_id FROM users WHERE id = $1)
+            WHERE a.class_id = (SELECT class_id FROM student_academic_infos WHERE student_id = $1)
             AND (a.target_audience = 'everyone' OR a.specific_student_ids @> $2::jsonb)
         `;
         params.push(req.user.id, JSON.stringify([req.user.id]));
