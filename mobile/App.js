@@ -24,7 +24,7 @@ import { Video, ResizeMode } from 'expo-av';
 import { User, Lock, GraduationCap, Home, BookOpen, Calendar, Clock, AlertCircle, LogOut, MessageSquare, Send, ChevronLeft } from 'lucide-react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
-import client from './src/api/client';
+import client, { SOCKET_URL } from './src/api/client';
 
 
 
@@ -95,7 +95,7 @@ export default function App() {
       fetchAttendance();
 
       // Real-time connection (Live Render)
-      const socket = io('https://college-management-mjul.onrender.com');
+      const socket = io(SOCKET_URL);
 
       socket.on(`attendance-updated-class-${user.class_id}`, (data) => {
         console.log('Class attendance update received!');
@@ -158,7 +158,7 @@ export default function App() {
       fetchContacts();
       
       // Initialize Socket
-      const newSocket = io('https://college-management-mjul.onrender.com', {
+      const newSocket = io(SOCKET_URL, {
         transports: ['websocket']
       });
 
@@ -1060,7 +1060,7 @@ function AssignmentsScreen({ assignments, loading }) {
                   <TouchableOpacity 
                     key={i}
                     style={styles.attachmentPin} 
-                    onPress={() => Linking.openURL(`https://college-management-mjul.onrender.com${file.url}`)}
+                    onPress={() => Linking.openURL(`${SOCKET_URL}${file.url}`)}
                   >
                     <AlertCircle size={14} color="#3498db" />
                     <Text style={styles.attachmentText} numberOfLines={1}>
