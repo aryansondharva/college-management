@@ -1,76 +1,49 @@
-const { Expo } = require('expo-server-sdk');
+
+const axios = require('axios');
 const db = require('../config/database');
 
-// Create a new Expo SDK client
-let expo = new Expo();
-
 /**
- * Send push notifications to specific users
- * @param {Array} userIds - Array of user IDs
- * @param {String} title - Notification title
- * @param {String} body - Notification body
- * @param {Object} data - Custom data to send with notification
+ * Sends a push notification to specific user(s) using Expo Push API
+ * @param {number|number[]} userIds - User ID or array of User IDs
+ * @param {string} title - Notification title
+ * @param {string} body - Notification body
+ * @param {object} data - Extra data to send
  */
-async function sendPushNotifications(userIds, title, body, data = {}) {
-  try {
-    if (!userIds || userIds.length === 0) return;
+async function sendPushNotification(userIds, title, body, data = {}) {
+    try {
+        const targetIds = Array.isArray(userIds) ? userIds : [userIds];
+        
+        // Fetch tokens for these users
+        const result = await db.query(
+            'SELECT token FROM push_tokens WHERE user_id = ANY($1)',
+            [targetIds]
+        );
 
-    // Get push tokens for these users
-    const result = await db.query(
-      'SELECT token, user_id FROM push_tokens WHERE user_id = ANY($1)',
-      [userIds]
-    );
+        const tokens = result.rows.map(r => r.token);
+        if (tokens.length === 0) return;
 
-    if (result.rows.length === 0) {
-      console.log('No push tokens found for users:', userIds);
-      return;
+        // Prepare Expo messages
+        const messages = tokens.map(token => ({
+            to: token,
+            sound: 'default',
+            title,
+            body,
+            data,
+        }));
+
+        // Send to Expo
+        await axios.post('https://exp.host/--/api/v2/push/send', messages, {
+            headers: {
+                'Accept': 'application/json',
+                'Accept-encoding': 'gzip, deflate',
+                'Content-Type': 'application/json',
+            },
+        });
+
+        console.log(`📡 Push notification sent to ${tokens.length} token(s)`);
+    } catch (err) {
+        console.error('❌ Push notification error:', err.response?.data || err.message);
     }
-
-    let messages = [];
-    for (let row of result.rows) {
-      const pushToken = row.token;
-
-      // Check that all your push tokens appear to be valid Expo push tokens
-      if (!Expo.isExpoPushToken(pushToken)) {
-        console.error(`Push token ${pushToken} is not a valid Expo push token`);
-        continue;
-      }
-
-      // Construct a message (see https://docs.expo.io/push-notifications/sending-notifications/)
-      messages.push({
-        to: pushToken,
-        sound: 'default',
-        title: title,
-        body: body,
-        data: { ...data, userId: row.user_id },
-        channelId: 'default',
-        priority: 'high',
-      });
-    }
-
-
-    // The Expo push notification service accepts batches of messages to reduce
-    // the number of requests and to improve efficiency.
-    let chunks = expo.chunkPushNotifications(messages);
-    let tickets = [];
-    
-    for (let chunk of chunks) {
-      try {
-        let ticketChunk = await expo.sendPushNotificationsAsync(chunk);
-        console.log('Push tickets:', ticketChunk);
-        tickets.push(...ticketChunk);
-      } catch (error) {
-        console.error('Error sending push chunk:', error);
-      }
-    }
-
-    // NOTE: In production, you should handle receipts to remove invalid tokens
-    // but for now, we'll just log success.
-    console.log(`Successfully sent ${messages.length} notifications.`);
-    
-  } catch (err) {
-    console.error('Push notification error:', err);
-  }
 }
 
-module.exports = { sendPushNotifications };
+module.exports = { sendPushNotification };

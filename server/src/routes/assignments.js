@@ -1,6 +1,7 @@
 const express = require('express');
 const db = require('../config/database');
 const { authenticate } = require('../middleware/auth');
+const { sendPushNotification } = require('../utils/notifications');
 const { can } = require('../middleware/permissions');
 
 const router = express.Router();
@@ -74,7 +75,32 @@ router.post('/', authenticate, async (req, res) => {
       'INSERT INTO assignments (title, description, class_id, course_id, deadline, target_audience, specific_student_ids, created_by, attachments) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *',
       [title, description, parseInt(class_id), parseInt(course_id), deadline, target_audience || 'everyone', JSON.stringify(specific_student_ids || []), req.user.id, JSON.stringify(attachments || [])]
     );
-    res.status(201).json({ message: 'Assignment created successfully.', assignment: result.rows[0] });
+
+    const newAssignment = result.rows[0];
+
+    // Send Push Notifications
+    try {
+        let targetUserIds = [];
+        if (target_audience === 'everyone') {
+            const classStudents = await db.query('SELECT student_id FROM student_academic_infos WHERE class_id = $1', [class_id]);
+            targetUserIds = classStudents.rows.map(r => r.student_id);
+        } else {
+            targetUserIds = specific_student_ids || [];
+        }
+
+        if (targetUserIds.length > 0) {
+            sendPushNotification(
+                targetUserIds,
+                'New Assignment Allotted!',
+                `${title}: ${description.substring(0, 50)}...`,
+                { type: 'assignment', id: newAssignment.id }
+            );
+        }
+    } catch (pushErr) {
+        console.error('Non-critical Push Error:', pushErr.message);
+    }
+
+    res.status(201).json({ message: 'Assignment created successfully.', assignment: newAssignment });
   } catch (err) {
     console.error("Critical error in POST /api/assignments:", err);
     res.status(500).json({ 

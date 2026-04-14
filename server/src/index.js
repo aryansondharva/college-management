@@ -37,6 +37,7 @@ const uploadRoutes = require('./routes/uploads');
 const messageRoutes = require('./routes/messages');
 const path = require('path');
 const db = require('./config/database');
+const { sendPushNotification } = require('./utils/notifications');
 
 
 // Mounting Routes
@@ -131,7 +132,19 @@ io.on('connection', (socket) => {
       // 2. Emit to receiver
       io.to(`user_${receiver_id}`).emit('receive_message', savedMsg);
       
-      // 3. Optional: Emit back to sender for confirmation (if not using local optimistic UI)
+      // 3. Send Push Notification to Receiver
+      const sender = await db.query('SELECT first_name, last_name FROM users WHERE id = $1', [sender_id]);
+      if (sender.rows.length > 0) {
+        const senderName = `${sender.rows[0].first_name} ${sender.rows[0].last_name}`;
+        sendPushNotification(
+            receiver_id, 
+            `New message from ${senderName}`, 
+            content.length > 50 ? content.substring(0, 47) + '...' : content,
+            { type: 'chat', sender_id }
+        );
+      }
+      
+      // 4. Optional: Emit back to sender for confirmation
       socket.emit('message_sent', savedMsg);
 
     } catch (err) {

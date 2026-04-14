@@ -146,8 +146,8 @@ export default function App() {
       });
 
       return () => {
-        Notifications.removeNotificationSubscription(notificationListener);
-        Notifications.removeNotificationSubscription(responseListener);
+        notificationListener.remove();
+        responseListener.remove();
       };
     }
   }, [user]);
@@ -913,6 +913,8 @@ function ProfileScreen({ user, profileData, setProfileData, handleUpdateProfile,
 }
 
 function ChatScreen({ contacts, activeChat, setActiveChat, chatMessages, openChat, chatText, setChatText, sendMessage, userId }) {
+  const scrollViewRef = React.useRef(null);
+
   if (activeChat) {
     return (
       <View style={{ flex: 1, backgroundColor: '#F8F9FA' }}>
@@ -934,8 +936,8 @@ function ChatScreen({ contacts, activeChat, setActiveChat, chatMessages, openCha
          <ScrollView 
             style={{ flex: 1, padding: 15 }} 
             contentContainerStyle={{ paddingBottom: 20 }}
-            ref={(ref) => { this.scrollView = ref; }}
-            onContentSizeChange={() => this.scrollView?.scrollToEnd({ animated: true })}
+            ref={scrollViewRef}
+            onContentSizeChange={() => scrollViewRef.current?.scrollToEnd({ animated: true })}
          >
             {chatMessages.map((m, i) => {
               const isMine = m.sender_id === userId;
