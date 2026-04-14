@@ -127,34 +127,30 @@ export default function App() {
         }
       });
 
-      const notificationListener = Notifications.addNotificationReceivedListener(notification => {
-        console.log('Notification received:', notification);
+      const notificationListener = Notifications?.addNotificationReceivedListener?.(notification => {
         const newNotif = {
-          id: notification.request.identifier,
-          title: notification.request.content.title,
-          body: notification.request.content.body,
-          data: notification.request.content.data,
+          id: notification?.request?.identifier || Math.random().toString(),
+          title: notification?.request?.content?.title || 'System Alert',
+          body: notification?.request?.content?.body || 'New update available',
+          data: notification?.request?.content?.data || {},
           time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
           date: new Date().toLocaleDateString()
         };
-        setNotificationsHistory(prev => [newNotif, ...prev].slice(0, 10)); // Keep last 10
+        setNotificationsHistory(prev => [newNotif, ...prev].slice(0, 10));
       });
 
-
-      const responseListener = Notifications.addNotificationResponseReceivedListener(response => {
-        console.log('Notification response:', response);
-        // Navigate to attendance tab if it's an attendance notification
-        if (response.notification.request.content.data?.type === 'attendance') {
+      const responseListener = Notifications?.addNotificationResponseReceivedListener?.(response => {
+        if (response?.notification?.request?.content?.data?.type === 'attendance') {
            setCurrentTab('attendance');
         }
       });
 
       return () => {
-        notificationListener.remove();
-        responseListener.remove();
+        notificationListener?.remove?.();
+        responseListener?.remove?.();
       };
     }
-  }, [user]);
+  }, [user, introComplete]); // Added introComplete to dependency
 
   useEffect(() => {
     if (user) {
@@ -323,9 +319,10 @@ export default function App() {
     return () => clearTimeout(timer);
   }, [introComplete]);
 
+  // --- ISOLATED INTRO SCREEN ---
   if (!introComplete) {
     return (
-      <View style={{ flex: 1, backgroundColor: '#121212' }}>
+      <View style={{ flex: 1, backgroundColor: '#000' }}>
         <StatusBar hidden />
         <Video
           source={require('./assets/drop.mp4')}
@@ -333,19 +330,23 @@ export default function App() {
           resizeMode={ResizeMode.COVER}
           shouldPlay
           isLooping={false}
-          isMuted={false}
           onPlaybackStatusUpdate={(status) => {
             if (status.didJustFinish) setIntroComplete(true);
           }}
-          onError={(e) => {
-            console.log("Video Error:", e);
-            setIntroComplete(true);
-          }}
+          onError={() => setIntroComplete(true)} // Fail-safe
         />
+        {/* Skip Button for convenience */}
+        <TouchableOpacity 
+          style={{ position: 'absolute', bottom: 50, right: 30, backgroundColor: 'rgba(255,255,255,0.1)', padding: 10, borderRadius: 20 }}
+          onPress={() => setIntroComplete(true)}
+        >
+          <Text style={{ color: '#FFF', fontSize: 12 }}>Skip Intro</Text>
+        </TouchableOpacity>
       </View>
     );
   }
 
+  // --- MAIN APP ENTRY ---
   if (appLoading) return (
     <View style={styles.loadingOverlay}>
       <StatusBar barStyle="light-content" />
@@ -355,7 +356,7 @@ export default function App() {
           style={{ width: 80, height: 80, marginBottom: 30, opacity: 0.8 }} 
         />
         <ActivityIndicator size="large" color="#FFF" />
-        <Text style={[styles.loadingMsg, { marginTop: 20 }]}>Please wait...</Text>
+        <Text style={[styles.loadingMsg, { marginTop: 20 }]}>Connecting to infrastructure...</Text>
       </View>
     </View>
   );
