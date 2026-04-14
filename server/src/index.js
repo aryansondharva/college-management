@@ -34,7 +34,9 @@ const eventRoutes = require('./routes/events');
 const academicSettingRoutes = require('./routes/academic_settings');
 const aiRoutes = require('./routes/ai');
 const uploadRoutes = require('./routes/uploads');
+const messageRoutes = require('./routes/messages');
 const path = require('path');
+const db = require('./config/database');
 
 
 // Mounting Routes
@@ -57,6 +59,7 @@ app.use('/api/events', eventRoutes);
 app.use('/api/academic-settings', academicSettingRoutes);
 app.use('/api/ai', aiRoutes);
 app.use('/api/upload', uploadRoutes);
+app.use('/api/messages', messageRoutes);
 
 // Static file serving for uploads
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
@@ -106,6 +109,36 @@ app.set('io', io);
 
 io.on('connection', (socket) => {
   console.log('New client connected:', socket.id);
+
+  // User joins their own private room
+  socket.on('join', (userId) => {
+    socket.join(`user_${userId}`);
+    console.log(`User ${userId} joined their private room.`);
+  });
+
+  // Handle private message
+  socket.on('send_message', async (data) => {
+    const { sender_id, receiver_id, content } = data;
+    
+    try {
+      // 1. Save to DB
+      const result = await db.query(
+        'INSERT INTO messages (sender_id, receiver_id, content) VALUES ($1, $2, $3) RETURNING *',
+        [sender_id, receiver_id, content]
+      );
+      const savedMsg = result.rows[0];
+
+      // 2. Emit to receiver
+      io.to(`user_${receiver_id}`).emit('receive_message', savedMsg);
+      
+      // 3. Optional: Emit back to sender for confirmation (if not using local optimistic UI)
+      socket.emit('message_sent', savedMsg);
+
+    } catch (err) {
+      console.error('Socket message error:', err);
+    }
+  });
+
   socket.on('disconnect', () => console.log('Client disconnected'));
 });
 

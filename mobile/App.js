@@ -21,7 +21,7 @@ import * as Device from 'expo-device';
 import { io } from 'socket.io-client';
 import { Video, ResizeMode } from 'expo-av';
 
-import { User, Lock, GraduationCap, Home, BookOpen, Calendar, Clock, AlertCircle, LogOut } from 'lucide-react-native';
+import { User, Lock, GraduationCap, Home, BookOpen, Calendar, Clock, AlertCircle, LogOut, MessageSquare, Send, ChevronLeft } from 'lucide-react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
 import client from './src/api/client';
@@ -50,6 +50,11 @@ export default function App() {
   const [currentTab, setCurrentTab] = useState('home');
   const [notificationsHistory, setNotificationsHistory] = useState([]);
   const [assignments, setAssignments] = useState([]);
+  const [contacts, setContacts] = useState([]);
+  const [activeChat, setActiveChat] = useState(null);
+  const [chatMessages, setChatMessages] = useState([]);
+  const [socket, setSocket] = useState(null);
+  const [chatText, setChatText] = useState('');
 
 
   // Profile Form States
@@ -150,8 +155,64 @@ export default function App() {
   useEffect(() => {
     if (user) {
       fetchAssignments();
+      fetchContacts();
+      
+      // Initialize Socket
+      const newSocket = io('https://college-management-mjul.onrender.com', {
+        transports: ['websocket']
+      });
+
+      newSocket.on('connect', () => {
+        console.log('Chat socket connected');
+        newSocket.emit('join', user.id);
+      });
+
+      newSocket.on('receive_message', (msg) => {
+        // Only append if it belongs to the active chat
+        setChatMessages(prev => [...prev, msg]);
+      });
+
+      setSocket(newSocket);
+
+      return () => newSocket.disconnect();
     }
   }, [user]);
+
+  const fetchContacts = async () => {
+    try {
+      const res = await client.get('/messages/contacts');
+      setContacts(res.data.contacts);
+    } catch (err) {
+      console.error('Failed to fetch contacts:', err);
+    }
+  };
+
+  const openChat = async (contact) => {
+    setActiveChat(contact);
+    setChatMessages([]);
+    try {
+      const res = await client.get(`/messages/${contact.id}`);
+      setChatMessages(res.data.messages);
+    } catch (err) {
+      console.error('Failed to fetch messages:', err);
+    }
+  };
+
+  const sendMessage = () => {
+    if (!chatText.trim() || !socket || !activeChat) return;
+
+    const msgData = {
+      sender_id: user.id,
+      receiver_id: activeChat.id,
+      content: chatText.trim()
+    };
+
+    socket.emit('send_message', msgData);
+    
+    // Optimistic UI update
+    setChatMessages(prev => [...prev, { ...msgData, created_at: new Date().toISOString() }]);
+    setChatText('');
+  };
 
   async function registerForPushNotificationsAsync() {
     let token;
@@ -648,6 +709,19 @@ export default function App() {
           loading={loading} 
         />
       )}
+      {currentTab === 'chat' && (
+        <ChatScreen 
+          contacts={contacts} 
+          activeChat={activeChat}
+          setActiveChat={setActiveChat}
+          chatMessages={chatMessages}
+          openChat={openChat}
+          chatText={chatText}
+          setChatText={setChatText}
+          sendMessage={sendMessage}
+          userId={user?.id}
+        />
+      )}
       {currentTab === 'syllabus' && <ComingSoon />}
 
       {/* BOTTOM NAV */}
@@ -676,6 +750,15 @@ export default function App() {
           <Text style={[styles.navTxt, { color: currentTab === 'syllabus' ? '#121212' : '#BBB' }]}>Syllabus</Text>
           {currentTab === 'syllabus' && <View style={styles.navDot} />}
         </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.navTab}
+          onPress={() => setCurrentTab('chat')}
+        >
+          <MessageSquare size={22} color={currentTab === 'chat' ? "#121212" : "#BBB"} />
+          <Text style={[styles.navTxt, { color: currentTab === 'chat' ? '#121212' : '#BBB' }]}>Chat</Text>
+          {currentTab === 'chat' && <View style={styles.navDot} />}
+        </TouchableOpacity>
+
         <TouchableOpacity
           style={styles.navTab}
           onPress={() => setCurrentTab('profile')}
@@ -826,6 +909,112 @@ function ProfileScreen({ user, profileData, setProfileData, handleUpdateProfile,
         <View style={{ height: 100 }} />
       </View>
     </ScrollView>
+  );
+}
+
+function ChatScreen({ contacts, activeChat, setActiveChat, chatMessages, openChat, chatText, setChatText, sendMessage, userId }) {
+  if (activeChat) {
+    return (
+      <View style={{ flex: 1, backgroundColor: '#F8F9FA' }}>
+         <SafeAreaView style={{ backgroundColor: '#FFF', borderBottomWidth: 1, borderBottomColor: '#EEE' }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', padding: 15 }}>
+               <TouchableOpacity onPress={() => setActiveChat(null)} style={{ marginRight: 15 }}>
+                  <ChevronLeft size={24} color="#121212" />
+               </TouchableOpacity>
+               <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: '#f0f0f0', marginRight: 12, justifyContent: 'center', alignItems: 'center' }}>
+                  <Text style={{ fontWeight: 'bold', color: '#121212' }}>{activeChat.first_name[0]}</Text>
+               </View>
+               <View>
+                  <Text style={{ fontWeight: 'bold', fontSize: 16 }}>{activeChat.first_name} {activeChat.last_name}</Text>
+                  <Text style={{ fontSize: 12, color: '#2ecc71' }}>Online</Text>
+               </View>
+            </View>
+         </SafeAreaView>
+
+         <ScrollView 
+            style={{ flex: 1, padding: 15 }} 
+            contentContainerStyle={{ paddingBottom: 20 }}
+            ref={(ref) => { this.scrollView = ref; }}
+            onContentSizeChange={() => this.scrollView?.scrollToEnd({ animated: true })}
+         >
+            {chatMessages.map((m, i) => {
+              const isMine = m.sender_id === userId;
+              return (
+                <View key={i} style={{ 
+                  alignSelf: isMine ? 'flex-end' : 'flex-start', 
+                  backgroundColor: isMine ? '#121212' : '#FFF',
+                  paddingHorizontal: 15,
+                  paddingVertical: 10,
+                  borderRadius: 20,
+                  maxWidth: '80%',
+                  marginBottom: 8,
+                  elevation: 1,
+                  shadowColor: '#000',
+                  shadowOffset: { width: 0, height: 1 },
+                  shadowOpacity: 0.1,
+                  shadowRadius: 2
+                }}>
+                  <Text style={{ color: isMine ? '#FFF' : '#121212', fontSize: 15 }}>{m.content}</Text>
+                  <Text style={{ color: isMine ? '#AAA' : '#BBB', fontSize: 9, marginTop: 4, alignSelf: 'flex-end' }}>
+                    {new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  </Text>
+                </View>
+              );
+            })}
+         </ScrollView>
+
+         <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} keyboardVerticalOffset={80}>
+            <View style={{ flexDirection: 'row', padding: 15, backgroundColor: '#FFF', borderTopWidth: 1, borderTopColor: '#EEE', alignItems: 'center', marginBottom: Platform.OS === 'ios' ? 20 : 0 }}>
+               <TextInput 
+                  style={{ flex: 1, backgroundColor: '#F8F9FA', borderRadius: 25, paddingHorizontal: 20, paddingVertical: 10, marginRight: 10, maxHeight: 100 }}
+                  placeholder="Message..."
+                  value={chatText}
+                  onChangeText={setChatText}
+                  multiline
+               />
+               <TouchableOpacity 
+                style={{ width: 45, height: 45, borderRadius: 23, backgroundColor: '#121212', justifyContent: 'center', alignItems: 'center' }}
+                onPress={sendMessage}
+               >
+                  <Send size={20} color="#FFF" />
+               </TouchableOpacity>
+            </View>
+         </KeyboardAvoidingView>
+      </View>
+    );
+  }
+
+  return (
+    <View style={{ flex: 1, backgroundColor: '#FFF' }}>
+      <View style={[styles.header, { paddingBottom: 25 }]}>
+        <Text style={styles.welcome}>Student Network</Text>
+        <Text style={styles.userName}>Messages</Text>
+      </View>
+
+      <ScrollView style={styles.main}>
+        <Text style={[styles.sectionHeader, { marginBottom: 15 }]}>Classmates</Text>
+        {contacts.map(c => (
+          <TouchableOpacity key={c.id} style={styles.contactCard} onPress={() => openChat(c)}>
+            <View style={styles.contactAvatar}>
+              <Text style={styles.avatarTxt}>{c.first_name[0]}</Text>
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.contactName}>{c.first_name} {c.last_name}</Text>
+              <Text style={styles.contactRole}>Student • Classmate</Text>
+            </View>
+            <View style={styles.onlineDot} />
+          </TouchableOpacity>
+        ))}
+
+        {contacts.length === 0 && (
+          <View style={{ padding: 60, alignItems: 'center' }}>
+            <MessageSquare size={50} color="#EEE" />
+            <Text style={{ color: '#BBB', fontWeight: '700', marginTop: 20 }}>No contacts found</Text>
+            <Text style={{ color: '#DDD', fontSize: 12, marginTop: 5 }}>Connect with your classmates soon.</Text>
+          </View>
+        )}
+      </ScrollView>
+    </View>
   );
 }
 
@@ -1138,5 +1327,13 @@ const styles = StyleSheet.create({
   taskDueDate: { fontSize: 11, fontWeight: '800', color: '#AAA', marginLeft: 6 },
   taskBtnText: { fontSize: 12, fontWeight: '800', color: '#121212' },
   attachmentPin: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#e1f5fe', padding: 10, borderRadius: 10, marginBottom: 15 },
-  attachmentText: { color: '#01579b', fontSize: 12, fontWeight: '800', marginLeft: 8 }
+  attachmentText: { color: '#01579b', fontSize: 12, fontWeight: '800', marginLeft: 8 },
+
+  // --- CHAT STYLES ---
+  contactCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFF', padding: 15, borderRadius: 20, marginBottom: 12, borderWidth: 1, borderColor: '#F5F5F5' },
+  contactAvatar: { width: 50, height: 50, borderRadius: 25, backgroundColor: '#F8F9FA', justifyContent: 'center', alignItems: 'center', marginRight: 15 },
+  avatarTxt: { fontWeight: '900', color: '#121212', fontSize: 18 },
+  contactName: { fontSize: 16, fontWeight: '900', color: '#121212' },
+  contactRole: { fontSize: 12, color: '#AAA', fontWeight: '800' },
+  onlineDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: '#2ecc71', borderWidth: 2, borderColor: '#FFF' }
 });
