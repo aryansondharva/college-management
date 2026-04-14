@@ -19,7 +19,7 @@ import {
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 import { io } from 'socket.io-client';
-import { Video, ResizeMode } from 'expo-av';
+
 
 import { User, Lock, GraduationCap, Home, BookOpen, Calendar, Clock, AlertCircle, LogOut, MessageSquare, Send, ChevronLeft } from 'lucide-react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -55,7 +55,6 @@ export default function App() {
   const [chatMessages, setChatMessages] = useState([]);
   const [socket, setSocket] = useState(null);
   const [chatText, setChatText] = useState('');
-  const [introComplete, setIntroComplete] = useState(false);
 
 
   // Profile Form States
@@ -314,26 +313,6 @@ export default function App() {
     );
   };
 
-  if (!introComplete) {
-    return (
-      <View style={{ flex: 1, backgroundColor: '#000' }}>
-        <StatusBar hidden />
-        <Video
-          source={require('./assets/drop.mp4')}
-          style={StyleSheet.absoluteFill}
-          resizeMode={ResizeMode.COVER}
-          shouldPlay
-          isLooping={false}
-          onPlaybackStatusUpdate={(status) => {
-            if (status.didJustFinish) {
-              setIntroComplete(true);
-            }
-          }}
-        />
-      </View>
-    );
-  }
-
   if (appLoading) return (
     <View style={styles.loadingOverlay}>
       <StatusBar barStyle="light-content" />
@@ -343,7 +322,7 @@ export default function App() {
           style={{ width: 80, height: 80, marginBottom: 30, opacity: 0.8 }} 
         />
         <ActivityIndicator size="large" color="#FFF" />
-        <Text style={[styles.loadingMsg, { marginTop: 20 }]}>Waking up server...</Text>
+        <Text style={[styles.loadingMsg, { marginTop: 20 }]}>Please wait...</Text>
       </View>
     </View>
   );
