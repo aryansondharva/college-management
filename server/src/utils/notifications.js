@@ -23,7 +23,7 @@ async function sendPushNotification(userIds, title, body, data = {}) {
         if (tokens.length === 0) return;
 
         // Prepare Expo messages
-        const messages = tokens.map(token => ({
+        const allMessages = tokens.map(token => ({
             to: token,
             sound: 'default',
             title,
@@ -31,16 +31,29 @@ async function sendPushNotification(userIds, title, body, data = {}) {
             data,
         }));
 
-        // Send to Expo
-        await axios.post('https://exp.host/--/api/v2/push/send', messages, {
-            headers: {
-                'Accept': 'application/json',
-                'Accept-encoding': 'gzip, deflate',
-                'Content-Type': 'application/json',
-            },
-        });
+        // Expo limits 100 messages per request - Chunking for safety
+        const chunks = [];
+        for (let i = 0; i < allMessages.length; i += 100) {
+            chunks.push(allMessages.slice(i, i + 100));
+        }
 
-        console.log(`📡 Push notification sent to ${tokens.length} token(s)`);
+        console.log(`📡 Sending ${allMessages.length} notifications in ${chunks.length} batch(es)...`);
+
+        for (const chunk of chunks) {
+            try {
+                await axios.post('https://exp.host/--/api/v2/push/send', chunk, {
+                    headers: {
+                        'Accept': 'application/json',
+                        'Accept-encoding': 'gzip, deflate',
+                        'Content-Type': 'application/json',
+                    },
+                });
+            } catch (chunkErr) {
+                console.error('⚠️ Batch delivery issue (likely invalid tokens):', chunkErr.response?.data || chunkErr.message);
+            }
+        }
+
+        console.log(`✅ All batches processed.`);
     } catch (err) {
         console.error('❌ Push notification error:', err.response?.data || err.message);
     }

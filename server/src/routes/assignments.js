@@ -81,20 +81,31 @@ router.post('/', authenticate, async (req, res) => {
     // Send Push Notifications
     try {
         let targetUserIds = [];
-        if (target_audience === 'everyone') {
-            const classStudents = await db.query('SELECT student_id FROM student_academic_infos WHERE class_id = $1', [class_id]);
+        
+        // 1. Fetch course name for a more professional notification
+        const courseRes = await db.query('SELECT name FROM courses WHERE id = $1', [parseInt(course_id)]);
+        const courseName = courseRes.rows[0]?.name || 'School Task';
+
+        // 2. Determine who to notify
+        if (target_audience === 'everyone' || target_audience === 'failure') {
+            // Notifications for everyone in the class (including remedial students)
+            const classStudents = await db.query('SELECT student_id FROM student_academic_infos WHERE class_id = $1', [parseInt(class_id)]);
             targetUserIds = classStudents.rows.map(r => r.student_id);
         } else {
+            // Notifications for specific students selected
             targetUserIds = specific_student_ids || [];
         }
 
         if (targetUserIds.length > 0) {
-            sendPushNotification(
+            console.log(`📣 Notifying ${targetUserIds.length} students about ${courseName} task: ${title}`);
+            await sendPushNotification(
                 targetUserIds,
-                'New Assignment Allotted!',
+                `New Task: ${courseName}`,
                 `${title}: ${description.substring(0, 50)}...`,
                 { type: 'assignment', id: newAssignment.id }
             );
+        } else {
+            console.log('⚠️ No target students found (or no push tokens registered) for this notification.');
         }
     } catch (pushErr) {
         console.error('Non-critical Push Error:', pushErr.message);
