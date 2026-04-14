@@ -6,7 +6,8 @@ async function init() {
         await db.query(`
             INSERT INTO app_versions (version_name, version_code, download_url, release_notes, is_latest) 
             VALUES ($1, $2, $3, $4, $5)
-        `, ['1.0.2', 3, '/api/app-updates/download', 'Initial release with QR updates', true]);
+        `, ['1.0.2', 3, 'https://expo.dev/artifacts/eas/huJF2jD46RYPgJuJjBa2yg.apk', 'Production build from EAS', true]);
+
         
         console.log('App version initialized successfully');
         process.exit(0);

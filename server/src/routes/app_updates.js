@@ -34,9 +34,15 @@ router.get('/download', async (req, res) => {
         }
 
         const version = result.rows[0];
-        // In a real app, this would be a path to a file on the server
-        // For now, we'll assume the files are in /uploads/apps/
-        const fileName = `drop-v${version.version_name}.apk`;
+        const downloadUrl = version.download_url;
+
+        // If it's an external link (like expo.dev), redirect to it
+        if (downloadUrl.startsWith('http')) {
+            return res.redirect(downloadUrl);
+        }
+
+        // Otherwise, assume it's a file in /uploads/apps/
+        const fileName = downloadUrl.split('/').pop();
         const filePath = path.join(__dirname, '../../uploads/apps', fileName);
 
         if (fs.existsSync(filePath)) {
@@ -48,6 +54,37 @@ router.get('/download', async (req, res) => {
     } catch (err) {
         console.error('Error in download:', err);
         res.status(500).send('Server error during download');
+    }
+});
+
+/**
+ * @route GET /api/app-updates/Drop.apk
+ * @desc Custom friendly URL for the latest APK
+ */
+router.get('/Drop.apk', async (req, res) => {
+    try {
+        const result = await db.query('SELECT download_url FROM app_versions WHERE is_latest = true ORDER BY created_at DESC LIMIT 1');
+        if (result.rows.length === 0) return res.status(404).send('No app available');
+        
+        const axios = require('axios');
+        const downloadUrl = result.rows[0].download_url;
+
+        // Fetch the file from Expo and stream it to the user
+        const response = await axios({
+            method: 'get',
+            url: downloadUrl,
+            responseType: 'stream'
+        });
+
+        // Set the filename that the user sees
+        res.setHeader('Content-Disposition', 'attachment; filename="Drop.apk"');
+        res.setHeader('Content-Type', 'application/vnd.android.package-archive');
+        
+        // Pipe the stream to the response
+        response.data.pipe(res);
+    } catch (err) {
+        console.error('Proxy download error:', err.message);
+        res.status(500).send('Error downloading file');
     }
 });
 
