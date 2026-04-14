@@ -55,6 +55,7 @@ export default function App() {
   const [chatMessages, setChatMessages] = useState([]);
   const [socket, setSocket] = useState(null);
   const [chatText, setChatText] = useState('');
+  const [introComplete, setIntroComplete] = useState(false);
 
 
   // Profile Form States
@@ -313,36 +314,39 @@ export default function App() {
     );
   };
 
-  const LoadingScreen = ({ message }) => {
+  if (!introComplete) {
     return (
-      <View style={styles.loadingOverlay}>
-        <StatusBar hidden={!message} />
-        {!message ? (
-          <Video
-            source={require('./assets/drop.mp4')}
-            style={StyleSheet.absoluteFill}
-            resizeMode={ResizeMode.COVER}
-            shouldPlay
-            isLooping={false}
-            onPlaybackStatusUpdate={(status) => {
-              if (status.didJustFinish) {
-                setAppLoading(false);
-              }
-            }}
-          />
-        ) : (
-          <View style={{ alignItems: 'center' }}>
-            <Image 
-              source={require('./assets/logo.png')} 
-              style={{ width: 80, height: 80, marginBottom: 30, opacity: 0.8 }} 
-            />
-            <ActivityIndicator size="large" color="#FFF" />
-            <Text style={[styles.loadingMsg, { marginTop: 20 }]}>{message}</Text>
-          </View>
-        )}
+      <View style={{ flex: 1, backgroundColor: '#000' }}>
+        <StatusBar hidden />
+        <Video
+          source={require('./assets/drop.mp4')}
+          style={StyleSheet.absoluteFill}
+          resizeMode={ResizeMode.COVER}
+          shouldPlay
+          isLooping={false}
+          onPlaybackStatusUpdate={(status) => {
+            if (status.didJustFinish) {
+              setIntroComplete(true);
+            }
+          }}
+        />
       </View>
     );
-  };
+  }
+
+  if (appLoading) return (
+    <View style={styles.loadingOverlay}>
+      <StatusBar barStyle="light-content" />
+      <View style={{ alignItems: 'center' }}>
+        <Image 
+          source={require('./assets/logo.png')} 
+          style={{ width: 80, height: 80, marginBottom: 30, opacity: 0.8 }} 
+        />
+        <ActivityIndicator size="large" color="#FFF" />
+        <Text style={[styles.loadingMsg, { marginTop: 20 }]}>Waking up server...</Text>
+      </View>
+    </View>
+  );
 
   const handleUpdateProfile = async () => {
     setLoading(true);
@@ -483,8 +487,17 @@ export default function App() {
         <View style={{ flex: 1 }}>
           {/* DARK HEADER */}
           <View style={styles.header}>
-            <Text style={styles.welcome}>Good Morning 👋</Text>
-            <Text style={styles.userName}>{user.first_name} {user.last_name}</Text>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+               <View>
+                  <Text style={styles.welcome}>Good Morning 👋</Text>
+                  <Text style={styles.userName}>{user.first_name} {user.last_name}</Text>
+               </View>
+               <Image 
+                  source={require('./drop-icon.png')} 
+                  style={{ width: 45, height: 45, borderRadius: 10 }} 
+                  resizeMode="contain"
+               />
+            </View>
             <View style={styles.headerRight}>
               <TouchableOpacity
                 style={styles.avatar}
