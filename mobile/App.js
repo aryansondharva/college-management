@@ -19,6 +19,7 @@ import {
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 import { io } from 'socket.io-client';
+import { Video, ResizeMode } from 'expo-av';
 
 
 import { User, Lock, GraduationCap, Home, BookOpen, Calendar, Clock, AlertCircle, LogOut, MessageSquare, Send, ChevronLeft } from 'lucide-react-native';
@@ -55,6 +56,7 @@ export default function App() {
   const [chatMessages, setChatMessages] = useState([]);
   const [socket, setSocket] = useState(null);
   const [chatText, setChatText] = useState('');
+  const [introComplete, setIntroComplete] = useState(false);
 
 
   // Profile Form States
@@ -99,12 +101,12 @@ export default function App() {
       // Real-time connection (Live Render)
       const socket = io(SOCKET_URL);
 
-      socket.on(`attendance-updated-class-${user.class_id}`, (data) => {
+      socket.on(`attendance-updated-class-${user?.class_id}`, (data) => {
         console.log('Class attendance update received!');
         fetchAttendance();
       });
 
-      socket.on(`attendance-updated-${user.id}`, (data) => {
+      socket.on(`attendance-updated-${user?.id}`, (data) => {
         Alert.alert("Attendance Update!", "Admin has updated your attendance.");
         fetchAttendance();
       });
@@ -313,6 +315,37 @@ export default function App() {
     );
   };
 
+  useEffect(() => {
+    // Fail-safe: Skip intro if video hangs for more than 4 seconds
+    const timer = setTimeout(() => {
+        if (!introComplete) setIntroComplete(true);
+    }, 4500);
+    return () => clearTimeout(timer);
+  }, [introComplete]);
+
+  if (!introComplete) {
+    return (
+      <View style={{ flex: 1, backgroundColor: '#121212' }}>
+        <StatusBar hidden />
+        <Video
+          source={require('./assets/drop.mp4')}
+          style={StyleSheet.absoluteFill}
+          resizeMode={ResizeMode.COVER}
+          shouldPlay
+          isLooping={false}
+          isMuted={false}
+          onPlaybackStatusUpdate={(status) => {
+            if (status.didJustFinish) setIntroComplete(true);
+          }}
+          onError={(e) => {
+            console.log("Video Error:", e);
+            setIntroComplete(true);
+          }}
+        />
+      </View>
+    );
+  }
+
   if (appLoading) return (
     <View style={styles.loadingOverlay}>
       <StatusBar barStyle="light-content" />
@@ -469,7 +502,7 @@ export default function App() {
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                <View>
                   <Text style={styles.welcome}>Good Morning 👋</Text>
-                  <Text style={styles.userName}>{user.first_name} {user.last_name}</Text>
+                  <Text style={styles.userName}>{user?.first_name || 'Student'} {user?.last_name || ''}</Text>
                </View>
                <Image 
                   source={require('./drop-icon.png')} 
@@ -489,20 +522,21 @@ export default function App() {
             <View style={styles.statRow}>
               <TouchableOpacity style={styles.statBox} onPress={() => setCurrentTab('attendance')}>
                 <Text style={styles.statValue}>
-                  {detailedAttendance.overall.reduce((s, sub) => s + sub.attended, 0)}
+                  {(detailedAttendance?.overall || []).reduce((s, sub) => s + (sub.attended || 0), 0)}
                 </Text>
                 <Text style={styles.statLabel}>Attended</Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.statBox} onPress={() => setCurrentTab('attendance')}>
                 <Text style={styles.statValue}>
-                  {detailedAttendance.overall.reduce((s, sub) => s + sub.total, 0)}
+                  {(detailedAttendance?.overall || []).reduce((s, sub) => s + (sub.total || 0), 0)}
                 </Text>
                 <Text style={styles.statLabel}>Total</Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.statBox} onPress={() => setCurrentTab('attendance')}>
                 {(() => {
-                  const tot = detailedAttendance.overall.reduce((s, sub) => s + sub.total, 0);
-                  const att = detailedAttendance.overall.reduce((s, sub) => s + sub.attended, 0);
+                  const arr = detailedAttendance?.overall || [];
+                  const tot = arr.reduce((s, sub) => s + (sub.total || 0), 0);
+                  const att = arr.reduce((s, sub) => s + (sub.attended || 0), 0);
                   const p = tot > 0 ? Math.round((att / tot) * 100) : 0;
                   return <Text style={[styles.statValue, { color: p >= 75 ? '#2ecc71' : '#FF5A5F' }]}>{p}%</Text>;
                 })()}
@@ -520,8 +554,9 @@ export default function App() {
                 <View>
                   <Text style={styles.cardLabel}>Cumulative Presence</Text>
                   {(() => {
-                    const tot = detailedAttendance.overall.reduce((s, sub) => s + sub.total, 0);
-                    const att = detailedAttendance.overall.reduce((s, sub) => s + sub.attended, 0);
+                    const arr = detailedAttendance?.overall || [];
+                    const tot = arr.reduce((s, sub) => s + (sub.total || 0), 0);
+                    const att = arr.reduce((s, sub) => s + (sub.attended || 0), 0);
                     const p = tot > 0 ? Math.round((att / tot) * 100) : 0;
                     return <Text style={styles.cardLargeText}>{p}%</Text>;
                   })()}
@@ -529,16 +564,17 @@ export default function App() {
                 <View><Text style={styles.targetLabel}>Target 75%</Text></View>
               </View>
               {(() => {
-                const tot = detailedAttendance.overall.reduce((s, sub) => s + sub.total, 0);
-                const att = detailedAttendance.overall.reduce((s, sub) => s + sub.attended, 0);
+                const arr = detailedAttendance?.overall || [];
+                const tot = arr.reduce((s, sub) => s + (sub.total || 0), 0);
+                const att = arr.reduce((s, sub) => s + (sub.attended || 0), 0);
                 const p = tot > 0 ? Math.round((att / tot) * 100) : 0;
-                const needed = Math.max(0, Math.ceil((0.75 * tot - att) / 0.25));
+                const needed = Math.max(0, Math.ceil((0.75 * tot - att) / 1)); // Fixed divisor to 1 to avoid large numbers if no data
                 return (
                   <>
                     <View style={styles.progressContainer}>
                       <View style={[styles.progressBar, { width: `${p}%`, backgroundColor: p >= 75 ? '#2ecc71' : '#FF5A5F' }]} />
                     </View>
-                    {needed > 0 && (
+                    {needed > 0 && tot > 0 && (
                       <View style={styles.smallAlert}>
                         <AlertCircle size={14} color="#AAA" />
                         <Text style={styles.smallAlertText}>Need {needed} more classes to reach 75%</Text>
