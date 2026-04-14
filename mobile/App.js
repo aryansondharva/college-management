@@ -18,6 +18,7 @@ import {
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 import { io } from 'socket.io-client';
+import { Video, ResizeMode } from 'expo-av';
 
 import { User, Lock, GraduationCap, Home, BookOpen, Calendar, Clock, AlertCircle, LogOut } from 'lucide-react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -77,8 +78,6 @@ export default function App() {
         }
       } catch (e) {
         console.error(e);
-      } finally {
-        setTimeout(() => setAppLoading(false), 2000); // 2 second delay for premium feel
       }
     };
     checkLogin();
@@ -236,54 +235,28 @@ export default function App() {
   };
 
   const LoadingScreen = ({ message }) => {
-    const pulseAnim = React.useRef(new Animated.Value(1)).current;
-    const dropAnim = React.useRef(new Animated.Value(-300)).current;
-    const lineAnim = React.useRef(new Animated.Value(0)).current;
-
-    React.useEffect(() => {
-      // Drop animation
-      Animated.spring(dropAnim, { toValue: 0, friction: 6, tension: 40, useNativeDriver: true }).start();
-
-      // Expansion line animation
-      Animated.timing(lineAnim, {
-        toValue: 80,
-        duration: 1500,
-        useNativeDriver: false,
-      }).start();
-
-      // Pulse loop
-      Animated.loop(
-        Animated.sequence([
-          Animated.timing(pulseAnim, { toValue: 1.1, duration: 1000, useNativeDriver: true }),
-          Animated.timing(pulseAnim, { toValue: 1, duration: 1000, useNativeDriver: true }),
-        ])
-      ).start();
-    }, []);
-
     return (
       <View style={styles.loadingOverlay}>
-        <StatusBar barStyle="light-content" />
-        <View style={styles.loadingContent}>
-          <Animated.View style={[
-            styles.loadingLogoBox,
-            { transform: [{ translateY: dropAnim }, { scale: pulseAnim }] }
-          ]}>
-            <Image source={require('./assets/logo.png')} style={styles.loadingLogo} />
-          </Animated.View>
-
-          <View style={{ height: 40, justifyContent: 'center', alignItems: 'center' }}>
-            {/* SLEEK PROGRESS LINE */}
-            <Animated.View style={{
-              width: lineAnim,
-              height: 1.5,
-              backgroundColor: 'rgba(255,255,255,0.4)',
-              borderRadius: 2
-            }} />
+        <StatusBar hidden />
+        <Video
+          source={require('./assets/drop.mp4')}
+          style={StyleSheet.absoluteFill}
+          resizeMode={ResizeMode.COVER}
+          shouldPlay
+          isLooping={message ? true : false} 
+          onPlaybackStatusUpdate={(status) => {
+            // Only transition if it's the initial intro (no message) and video finished
+            if (!message && status.didJustFinish) {
+              setAppLoading(false); 
+            }
+          }}
+        />
+        {message && (
+          <View style={[StyleSheet.absoluteFill, { justifyContent: 'flex-end', alignItems: 'center', paddingBottom: 100, backgroundColor: 'rgba(0,0,0,0.3)' }]}>
+            <ActivityIndicator size="large" color="#FFF" />
+            <Text style={[styles.loadingMsg, { marginTop: 20 }]}>{message}</Text>
           </View>
-
-          <Text style={styles.loadingMsg}>{message || 'Launching Drop...'}</Text>
-          <Text style={styles.loadingSubMsg}>Your academic journey starts here</Text>
-        </View>
+        )}
       </View>
     );
   };
@@ -321,7 +294,7 @@ export default function App() {
     </View>
   );
 
-  if (appLoading) return <LoadingScreen message="Launching Drop..." />;
+  if (appLoading) return <LoadingScreen />;
 
   if (!user) {
     return (

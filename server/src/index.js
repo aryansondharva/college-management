@@ -32,6 +32,8 @@ const routineRoutes = require('./routes/routines');
 const syllabusRoutes = require('./routes/syllabus');
 const eventRoutes = require('./routes/events');
 const academicSettingRoutes = require('./routes/academic_settings');
+const aiRoutes = require('./routes/ai');
+
 
 // Mounting Routes
 app.use('/api/auth', authRoutes);
@@ -51,6 +53,8 @@ app.use('/api/routines', routineRoutes);
 app.use('/api/syllabus', syllabusRoutes);
 app.use('/api/events', eventRoutes);
 app.use('/api/academic-settings', academicSettingRoutes);
+app.use('/api/ai', aiRoutes);
+
 
 // Debug route to diagnose Render -> Supabase issues
 app.get('/api/debug-db', async (req, res) => {

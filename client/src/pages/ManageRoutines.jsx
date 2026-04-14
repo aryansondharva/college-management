@@ -16,6 +16,13 @@ const ManageRoutines = () => {
   
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  
+  // AI States
+  const [generating, setGenerating] = useState(false);
+  const [aiTimetable, setAiTimetable] = useState(null);
+  const [showAiModal, setShowAiModal] = useState(false);
+  const [aiConstraints, setAiConstraints] = useState('');
+
 
   const [newRoutine, setNewRoutine] = useState({
     course_id: '',
@@ -129,6 +136,54 @@ const ManageRoutines = () => {
     }
   };
 
+  const handleGenerateAI = async () => {
+    if (!selectedClass || !selectedSection || !selectedSession) {
+      alert('Please select Session, Class, and Section first.');
+      return;
+    }
+    setGenerating(true);
+    setAiTimetable(null);
+    setError('');
+    try {
+      const res = await api.post('/ai/generate-timetable', {
+        class_id: selectedClass,
+        section_id: selectedSection,
+        session_id: selectedSession,
+        constraints: aiConstraints
+      });
+      setAiTimetable(res.data.timetable);
+      setShowAiModal(true);
+    } catch (err) {
+      const msg = err.response?.data?.message || 'AI Generation failed.';
+      setError(msg);
+      alert(msg);
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  const handleSaveGeneratedTimetable = async () => {
+    if (!aiTimetable) return;
+    setLoading(true);
+    try {
+      await api.post('/ai/save-timetable', {
+        class_id: selectedClass,
+        section_id: selectedSection,
+        session_id: selectedSession,
+        timetable: aiTimetable
+      });
+      setShowAiModal(false);
+      setAiTimetable(null);
+      fetchRoutines();
+      alert('Timetable saved successfully!');
+    } catch (err) {
+      setError('Failed to save timetable.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+
   const weekdays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
   const canCreate = hasPermission('create routines') || user?.role === 'admin';
@@ -137,7 +192,28 @@ const ManageRoutines = () => {
       <div className="container-fluid py-4">
         <div className="d-flex justify-content-between align-items-center mb-4">
           <h3 className="fw-bold m-0"><i className="bi bi-calendar3 me-2 text-dark"></i>Class Routines</h3>
+          <div className="d-flex gap-2">
+            <button 
+              className="btn btn-primary d-flex align-items-center shadow-none border-0" 
+              style={{ background: 'linear-gradient(135deg, #6366f1 0%, #a855f7 100%)' }}
+              onClick={handleGenerateAI}
+              disabled={generating}
+            >
+              {generating ? (
+                <>
+                  <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                  Generating...
+                </>
+              ) : (
+                <>
+                  <i className="bi bi-stars me-2"></i>
+                  Generate with AI
+                </>
+              )}
+            </button>
+          </div>
         </div>
+
         
         {error && <div className="alert alert-danger shadow-sm border-0 rounded-3">{error}</div>}
 
@@ -167,10 +243,13 @@ const ManageRoutines = () => {
               </div>
               <div className="col-md-3">
                 <label className="form-label text-transparent fw-bold small d-none d-md-block">&nbsp;</label>
-                <button type="submit" className="btn btn-dark w-100 py-2 fw-medium shadow-none">
-                  <i className="bi bi-search me-2"></i> Show Routine
-                </button>
+                <div className="d-flex gap-2">
+                  <button type="submit" className="btn btn-dark w-100 py-2 fw-medium shadow-none">
+                    <i className="bi bi-search me-2"></i> Show Routine
+                  </button>
+                </div>
               </div>
+
             </form>
           </div>
         </div>
@@ -267,7 +346,71 @@ const ManageRoutines = () => {
             </div>
           </div>
         </div>
+
+        {/* AI Timetable Preview Modal */}
+        {showAiModal && (
+          <div className="modal show d-block" tabIndex="-1" style={{ backgroundColor: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)' }}>
+            <div className="modal-dialog modal-lg modal-dialog-centered">
+              <div className="modal-content border-0 rounded-4 shadow-lg">
+                <div className="modal-header border-0 p-4 pb-0">
+                  <div>
+                    <h5 className="modal-title fw-bold d-flex align-items-center">
+                       <i className="bi bi-stars me-2 text-primary"></i> AI Generated Timetable
+                    </h5>
+                    <p className="text-muted small mb-0">Review the generated schedule before applying it.</p>
+                  </div>
+                  <button type="button" className="btn-close" onClick={() => setShowAiModal(false)}></button>
+                </div>
+                <div className="modal-body p-4">
+                  <div className="table-responsive rounded-3 border">
+                    <table className="table table-sm table-hover align-middle mb-0">
+                      <thead className="bg-light">
+                        <tr>
+                          <th className="px-3 py-2 border-0 small fw-bold">DAY</th>
+                          <th className="py-2 border-0 small fw-bold">COURSE</th>
+                          <th className="py-2 border-0 small fw-bold">TIME SLOT</th>
+                          <th className="py-2 border-0 small fw-bold">ROOM</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {aiTimetable && aiTimetable.map((item, idx) => (
+                          <tr key={idx}>
+                            <td className="px-3 py-2 fw-bold small">{item.day_of_week}</td>
+                            <td className="py-2 small">{item.course_name}</td>
+                            <td className="py-2 small">
+                               <span className="badge bg-light text-dark border fw-normal">{item.start_time} - {item.end_time}</span>
+                            </td>
+                            <td className="py-2 small text-muted">{item.room_no}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  
+                  <div className="mt-4 p-3 bg-warning bg-opacity-10 rounded-3 border border-warning border-opacity-25">
+                     <p className="mb-0 small text-warning-emphasis">
+                        <i className="bi bi-exclamation-triangle-fill me-2"></i>
+                        Applying this timetable will <strong>overwrite</strong> any existing schedule for this specific class and section.
+                     </p>
+                  </div>
+                </div>
+                <div className="modal-footer border-0 p-4 pt-0">
+                  <button type="button" className="btn btn-light px-4 fw-medium" onClick={() => setShowAiModal(false)}>Discard</button>
+                  <button 
+                    type="button" 
+                    className="btn btn-primary px-4 fw-medium" 
+                    onClick={handleSaveGeneratedTimetable}
+                    disabled={loading}
+                  >
+                    {loading ? 'Saving...' : 'Apply Schedule'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
+
   );
 };
 
