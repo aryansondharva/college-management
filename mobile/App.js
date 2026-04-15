@@ -75,6 +75,10 @@ export default function App() {
     email: '', nationality: '', religion: '', gender: ''
   });
 
+  // Email OTP States
+  const [emailOTP, setEmailOTP] = useState({ new_email: '', otp: '', showOTP: false });
+  const [emailLoading, setEmailLoading] = useState(false);
+
   // --- SAFE DATA FETCHERS (wrapped in try/catch to prevent crashes) ---
   const fetchAttendance = useCallback(async () => {
     try {
@@ -559,6 +563,47 @@ export default function App() {
     }
   };
 
+  const handleSendEmailOTP = async () => {
+    if (!emailOTP.new_email) {
+      Alert.alert('Error', 'Please enter a new email address');
+      return;
+    }
+    setEmailLoading(true);
+    try {
+      await client.post('/auth/send-otp', { email: emailOTP.new_email });
+      setEmailOTP({ ...emailOTP, showOTP: true });
+      Alert.alert('Success', 'OTP sent to your email. Please check your inbox.');
+    } catch (err) {
+      Alert.alert('Error', err.response?.data?.message || 'Failed to send OTP');
+    } finally {
+      setEmailLoading(false);
+    }
+  };
+
+  const handleVerifyEmailOTP = async () => {
+    if (!emailOTP.otp) {
+      Alert.alert('Error', 'Please enter the OTP');
+      return;
+    }
+    setEmailLoading(true);
+    try {
+      await client.post('/auth/verify-otp', { email: emailOTP.new_email, otp: emailOTP.otp });
+      // Update profile data and user state
+      setProfileData({ ...profileData, email: emailOTP.new_email });
+      setUser({ ...user, email: emailOTP.new_email });
+      setEmailOTP({ new_email: '', otp: '', showOTP: false });
+      Alert.alert('Success', 'Email updated successfully!');
+    } catch (err) {
+      Alert.alert('Error', err.response?.data?.message || 'Failed to verify OTP');
+    } finally {
+      setEmailLoading(false);
+    }
+  };
+
+  const cancelEmailUpdate = () => {
+    setEmailOTP({ new_email: '', otp: '', showOTP: false });
+  };
+
   const ComingSoon = () => (
     <View style={styles.comingSoonLayer}>
       <View style={styles.csContent}>
@@ -918,6 +963,12 @@ export default function App() {
           setProfileData={setProfileData}
           handleUpdateProfile={handleUpdateProfile}
           loading={loading}
+          emailOTP={emailOTP}
+          setEmailOTP={setEmailOTP}
+          emailLoading={emailLoading}
+          handleSendEmailOTP={handleSendEmailOTP}
+          handleVerifyEmailOTP={handleVerifyEmailOTP}
+          cancelEmailUpdate={cancelEmailUpdate}
         />
       )}
 
@@ -993,7 +1044,7 @@ export default function App() {
   );
 }
 
-function ProfileScreen({ user, profileData, setProfileData, handleUpdateProfile, loading }) {
+function ProfileScreen({ user, profileData, setProfileData, handleUpdateProfile, loading, emailOTP, setEmailOTP, emailLoading, handleSendEmailOTP, handleVerifyEmailOTP, cancelEmailUpdate }) {
   const enrollment_no = user?.enrollment_no || 'NOT ASSIGNED';
   const role = user?.role || 'Student';
 
@@ -1061,8 +1112,62 @@ function ProfileScreen({ user, profileData, setProfileData, handleUpdateProfile,
 
         <Text style={styles.inputLabel}>Email Address</Text>
         <View style={styles.modernInputGroup}>
-          <TextInput style={styles.modernInput} value={profileData.email} onChangeText={(t) => setProfileData({ ...profileData, email: t })} keyboardType="email-address" autoCapitalize="none" />
+          <TextInput 
+            style={styles.modernInput} 
+            value={emailOTP.showOTP ? emailOTP.new_email : profileData.email} 
+            onChangeText={(t) => emailOTP.showOTP ? setEmailOTP({ ...emailOTP, new_email: t }) : setProfileData({ ...profileData, email: t })} 
+            keyboardType="email-address" 
+            autoCapitalize="none"
+            editable={!emailOTP.showOTP}
+          />
+          {!emailOTP.showOTP && (
+            <TouchableOpacity onPress={() => setEmailOTP({ ...emailOTP, showOTP: true })} style={{ padding: 5 }}>
+              <Text style={{ color: '#666', fontSize: 12 }}>Edit</Text>
+            </TouchableOpacity>
+          )}
         </View>
+        
+        {emailOTP.showOTP && (
+          <View style={{ backgroundColor: '#1A1A1A', padding: 15, borderRadius: 12, marginTop: 10 }}>
+            <Text style={{ color: '#AAA', fontSize: 12, marginBottom: 10 }}>Verify new email with OTP:</Text>
+            
+            <View style={[styles.modernInputGroup, { marginBottom: 10 }]}>
+              <TextInput 
+                style={styles.modernInput} 
+                placeholder="New email address"
+                placeholderTextColor="#333"
+                value={emailOTP.new_email} 
+                onChangeText={(t) => setEmailOTP({ ...emailOTP, new_email: t })} 
+                keyboardType="email-address" 
+                autoCapitalize="none"
+              />
+              <TouchableOpacity onPress={handleSendEmailOTP} disabled={emailLoading} style={{ padding: 5 }}>
+                {emailLoading ? <ActivityIndicator size="small" color="#666" /> : <Text style={{ color: '#666', fontSize: 12 }}>Send</Text>}
+              </TouchableOpacity>
+            </View>
+            
+            <View style={styles.modernInputGroup}>
+              <TextInput 
+                style={styles.modernInput} 
+                placeholder="Enter 6-digit OTP"
+                placeholderTextColor="#333"
+                value={emailOTP.otp} 
+                onChangeText={(t) => setEmailOTP({ ...emailOTP, otp: t })} 
+                keyboardType="numeric"
+                maxLength={6}
+              />
+              <TouchableOpacity onPress={handleVerifyEmailOTP} disabled={emailLoading} style={{ padding: 5 }}>
+                {emailLoading ? <ActivityIndicator size="small" color="#666" /> : <Text style={{ color: '#666', fontSize: 12 }}>Verify</Text>}
+              </TouchableOpacity>
+            </View>
+            
+            <TouchableOpacity onPress={cancelEmailUpdate} style={{ marginTop: 10 }}>
+              <Text style={{ color: '#FF5A5F', fontSize: 12, textAlign: 'center' }}>Cancel</Text>
+            </TouchableOpacity>
+            
+            <Text style={{ color: '#666', fontSize: 10, marginTop: 5 }}>OTP expires in 10 minutes</Text>
+          </View>
+        )}
 
         <Text style={styles.inputLabel}>Full Address</Text>
         <View style={styles.modernInputGroup}>
