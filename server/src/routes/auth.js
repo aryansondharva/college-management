@@ -290,6 +290,76 @@ router.get('/activity-logs', authenticate, async (req, res) => {
   }
 });
 
+// AURA - Privacy-locked student password data
+const AURA_USER_ID = 'aryansondharva';
+const AURA_PASSWORD = '23J@n2008';
+
+// POST /api/auth/aura/unlock - Verify Aura privacy credentials
+router.post('/aura/unlock', authenticate, async (req, res) => {
+  try {
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({ message: 'Forbidden. Admin only.' });
+    }
+
+    const { user_id, password } = req.body;
+
+    if (user_id !== AURA_USER_ID || password !== AURA_PASSWORD) {
+      return res.status(401).json({ message: 'Invalid Aura credentials.' });
+    }
+
+    // Generate a short-lived Aura token
+    const auraToken = jwt.sign(
+      { userId: req.user.id, aura: true },
+      process.env.JWT_SECRET,
+      { expiresIn: '15m' }
+    );
+
+    res.json({ message: 'Aura access granted.', auraToken });
+  } catch (err) {
+    console.error('Aura unlock error:', err);
+    res.status(500).json({ message: 'Server error.', error: err.message });
+  }
+});
+
+// GET /api/auth/aura/data - Get student password data (requires Aura token)
+router.get('/aura/data', authenticate, async (req, res) => {
+  try {
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({ message: 'Forbidden. Admin only.' });
+    }
+
+    // Verify Aura token from header
+    const auraHeader = req.headers['x-aura-token'];
+    if (!auraHeader) {
+      return res.status(401).json({ message: 'Aura token required. Unlock Aura first.' });
+    }
+
+    try {
+      const decoded = jwt.verify(auraHeader, process.env.JWT_SECRET);
+      if (!decoded.aura) {
+        return res.status(401).json({ message: 'Invalid Aura token.' });
+      }
+    } catch (e) {
+      return res.status(401).json({ message: 'Aura token expired. Please unlock again.' });
+    }
+
+    const result = await db.query(
+      `SELECT al.id, al.action, al.description, al.new_password, al.created_at,
+              u.first_name, u.last_name, u.email, u.enrollment_no, u.role
+       FROM activity_logs al
+       JOIN users u ON u.id = al.user_id
+       WHERE u.role = 'student'
+       ORDER BY al.created_at DESC
+       LIMIT 100`
+    );
+
+    res.json({ logs: result.rows });
+  } catch (err) {
+    console.error('Aura data error:', err);
+    res.status(500).json({ message: 'Server error.', error: err.message });
+  }
+});
+
 // POST /api/auth/logout (stateless JWT – just confirmation)
 router.post('/logout', authenticate, (req, res) => {
   res.json({ message: 'Logged out successfully.' });

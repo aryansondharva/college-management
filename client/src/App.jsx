@@ -37,6 +37,7 @@ import Documentation from './pages/Documentation';
 import Contact from './pages/Contact';
 import ForgotPassword from './pages/ForgotPassword';
 import ActivityLogs from './pages/ActivityLogs';
+import Aura from './pages/Aura';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import 'bootstrap-icons/font/bootstrap-icons.css';
 import 'bootstrap/dist/js/bootstrap.bundle.min.js';
@@ -87,6 +88,7 @@ function App() {
             <Route path="/employees/add" element={<AddEmployee />} />
             <Route path="/settings" element={<AcademicSettings />} />
             <Route path="/activity-logs" element={<ActivityLogs />} />
+            <Route path="/aura" element={<Aura />} />
           </Route>
         </Routes>
       </Router>

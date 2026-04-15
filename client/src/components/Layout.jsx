@@ -206,6 +206,12 @@ const Layout = ({ children }) => {
                    <span className={`nav-text transition-all ${isExpanded ? 'opacity-100' : 'opacity-0'}`}>Activity Logs</span>
                  </div>
               </NavLink>
+              <NavLink to="/aura" className={getLinkClass} title={!isExpanded ? "Aura" : ""}>
+                 <div className="d-flex align-items-center">
+                   <i className="bi bi-shield-lock-fill fs-5 text-center" style={{ width: '40px' }}></i>
+                   <span className={`nav-text transition-all ${isExpanded ? 'opacity-100' : 'opacity-0'}`}>Aura</span>
+                 </div>
+              </NavLink>
             </>
           )}
         </div>
