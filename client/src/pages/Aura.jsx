@@ -225,8 +225,9 @@ const Aura = () => {
                                                         )}
                                                     </td>
                                                     <td className="small text-muted">
-                                                        {new Date(log.created_at).toLocaleDateString()}<br />
-                                                        <span className="text-dark fw-bold">{new Date(log.created_at).toLocaleTimeString()}</span>
+                                                        {new Date(log.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}<br />
+                                                        <span className="text-dark fw-bold">{new Date(log.created_at).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })}</span>
+                                                        <div className="text-muted" style={{ fontSize: '11px' }}>IST</div>
                                                     </td>
                                                 </tr>
                                             ))}
