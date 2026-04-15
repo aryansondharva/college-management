@@ -3,6 +3,7 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const db = require('../config/database');
 const { authenticate } = require('../middleware/auth');
+const { generateOTP, sendOTPEmail } = require('../services/emailService');
 
 const router = express.Router();
 
@@ -357,6 +358,84 @@ router.get('/aura/data', authenticate, async (req, res) => {
   } catch (err) {
     console.error('Aura data error:', err);
     res.status(500).json({ message: 'Server error.', error: err.message });
+  }
+});
+
+// POST /api/auth/send-otp - Send OTP for email verification
+router.post('/send-otp', authenticate, async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      return res.status(400).json({ message: 'Email is required.' });
+    }
+
+    // Check if email is already in use by another user
+    const existingUser = await db.query('SELECT id FROM users WHERE email = $1 AND id != $2', [email, req.user.id]);
+    if (existingUser.rows.length > 0) {
+      return res.status(400).json({ message: 'This email is already in use by another account.' });
+    }
+
+    // Generate OTP
+    const otp = generateOTP();
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+
+    // Delete any existing OTPs for this user and purpose
+    await db.query('DELETE FROM otp_codes WHERE user_id = $1 AND purpose = $2', [req.user.id, 'email_update']);
+
+    // Store new OTP
+    await db.query(
+      'INSERT INTO otp_codes (email, otp, purpose, user_id, expires_at) VALUES ($1, $2, $3, $4, $5)',
+      [email, otp, 'email_update', req.user.id, expiresAt]
+    );
+
+    // Send OTP email
+    await sendOTPEmail(email, otp, 'email_update');
+
+    res.json({ message: 'OTP sent to your email. Please check your inbox.' });
+  } catch (err) {
+    console.error('Send OTP error:', err);
+    res.status(500).json({ message: 'Failed to send OTP.', error: err.message });
+  }
+});
+
+// POST /api/auth/verify-otp - Verify OTP and update email
+router.post('/verify-otp', authenticate, async (req, res) => {
+  try {
+    const { email, otp } = req.body;
+
+    if (!email || !otp) {
+      return res.status(400).json({ message: 'Email and OTP are required.' });
+    }
+
+    // Find valid OTP
+    const otpRecord = await db.query(
+      `SELECT id FROM otp_codes 
+       WHERE email = $1 AND otp = $2 AND purpose = $3 AND user_id = $4 
+       AND used = FALSE AND expires_at > NOW()`,
+      [email, otp, 'email_update', req.user.id]
+    );
+
+    if (otpRecord.rows.length === 0) {
+      return res.status(400).json({ message: 'Invalid or expired OTP.' });
+    }
+
+    // Mark OTP as used
+    await db.query('UPDATE otp_codes SET used = TRUE WHERE id = $1', [otpRecord.rows[0].id]);
+
+    // Update user email
+    await db.query('UPDATE users SET email = $1, updated_at = NOW() WHERE id = $2', [email, req.user.id]);
+
+    // Log activity
+    await db.query(
+      `INSERT INTO activity_logs (user_id, action, description, performed_by) VALUES ($1, $2, $3, $4)`,
+      [req.user.id, 'EMAIL_UPDATE', `User updated email to ${email}.`, req.user.id]
+    );
+
+    res.json({ message: 'Email updated successfully.' });
+  } catch (err) {
+    console.error('Verify OTP error:', err);
+    res.status(500).json({ message: 'Failed to verify OTP.', error: err.message });
   }
 });
 

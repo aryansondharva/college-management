@@ -18,6 +18,11 @@ const Profile = () => {
         new_password: '',
         new_password_confirmation: ''
     });
+    const [emailData, setEmailData] = useState({
+        new_email: '',
+        otp: ''
+    });
+    const [showEmailOTP, setShowEmailOTP] = useState(false);
     const [loading, setLoading] = useState(false);
     const [message, setMessage] = useState({ text: '', type: '' });
 
@@ -65,6 +70,51 @@ const Profile = () => {
         }
     };
 
+    const handleSendOTP = async () => {
+        if (!emailData.new_email) {
+            setMessage({ text: 'Please enter a new email address.', type: 'danger' });
+            return;
+        }
+        setLoading(true);
+        setMessage({ text: '', type: '' });
+        try {
+            await api.post('/auth/send-otp', { email: emailData.new_email });
+            setShowEmailOTP(true);
+            setMessage({ text: 'OTP sent to your email. Please check your inbox.', type: 'success' });
+        } catch (err) {
+            setMessage({ text: err.response?.data?.message || 'Failed to send OTP.', type: 'danger' });
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleVerifyOTP = async () => {
+        if (!emailData.otp) {
+            setMessage({ text: 'Please enter the OTP.', type: 'danger' });
+            return;
+        }
+        setLoading(true);
+        setMessage({ text: '', type: '' });
+        try {
+            await api.post('/auth/verify-otp', { email: emailData.new_email, otp: emailData.otp });
+            setUser({ ...user, email: emailData.new_email });
+            setFormData({ ...formData, email: emailData.new_email });
+            setEmailData({ new_email: '', otp: '' });
+            setShowEmailOTP(false);
+            setMessage({ text: 'Email updated successfully!', type: 'success' });
+        } catch (err) {
+            setMessage({ text: err.response?.data?.message || 'Failed to verify OTP.', type: 'danger' });
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const cancelEmailUpdate = () => {
+        setEmailData({ new_email: '', otp: '' });
+        setShowEmailOTP(false);
+        setMessage({ text: '', type: '' });
+    };
+
     return (
         <div className="container py-4">
                 <div className="d-flex justify-content-between align-items-center mb-4">
@@ -97,7 +147,55 @@ const Profile = () => {
                                         </div>
                                         <div className="col-md-6">
                                             <label className="form-label small fw-bold">Email Address</label>
-                                            <input type="email" className="form-control" value={formData.email} onChange={(e) => setFormData({...formData, email: e.target.value})} required />
+                                            <div className="input-group">
+                                                <input 
+                                                    type="email" 
+                                                    className="form-control" 
+                                                    value={showEmailOTP ? emailData.new_email : formData.email} 
+                                                    onChange={(e) => showEmailOTP ? setEmailData({...emailData, new_email: e.target.value}) : setFormData({...formData, email: e.target.value})}
+                                                    disabled={showEmailOTP}
+                                                    required 
+                                                />
+                                                {!showEmailOTP && (
+                                                    <button className="btn btn-outline-primary" type="button" onClick={() => setShowEmailOTP(true)}>
+                                                        <i className="bi bi-pencil"></i>
+                                                    </button>
+                                                )}
+                                            </div>
+                                            {showEmailOTP && (
+                                                <div className="mt-3 p-3 bg-light rounded-3">
+                                                    <p className="small text-muted mb-2">Enter new email and verify with OTP:</p>
+                                                    <div className="input-group mb-2">
+                                                        <input 
+                                                            type="email" 
+                                                            className="form-control" 
+                                                            placeholder="New email address"
+                                                            value={emailData.new_email}
+                                                            onChange={(e) => setEmailData({...emailData, new_email: e.target.value})}
+                                                        />
+                                                        <button className="btn btn-primary" type="button" onClick={handleSendOTP} disabled={loading}>
+                                                            {loading ? 'Sending...' : 'Send OTP'}
+                                                        </button>
+                                                    </div>
+                                                    <div className="input-group">
+                                                        <input 
+                                                            type="text" 
+                                                            className="form-control" 
+                                                            placeholder="Enter 6-digit OTP"
+                                                            value={emailData.otp}
+                                                            onChange={(e) => setEmailData({...emailData, otp: e.target.value})}
+                                                            maxLength={6}
+                                                        />
+                                                        <button className="btn btn-success" type="button" onClick={handleVerifyOTP} disabled={loading}>
+                                                            {loading ? 'Verifying...' : 'Verify'}
+                                                        </button>
+                                                        <button className="btn btn-outline-secondary" type="button" onClick={cancelEmailUpdate}>
+                                                            Cancel
+                                                        </button>
+                                                    </div>
+                                                    <small className="text-muted">OTP will expire in 10 minutes.</small>
+                                                </div>
+                                            )}
                                         </div>
                                         <div className="col-md-6">
                                             <label className="form-label small fw-bold">Phone Number</label>

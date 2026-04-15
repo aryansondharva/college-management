@@ -261,6 +261,18 @@ CREATE TABLE IF NOT EXISTS activity_logs (
     created_at TIMESTAMP DEFAULT NOW()
 );
 
+-- OTP Codes for email verification
+CREATE TABLE IF NOT EXISTS otp_codes (
+    id SERIAL PRIMARY KEY,
+    email VARCHAR(255) NOT NULL,
+    otp VARCHAR(10) NOT NULL,
+    purpose VARCHAR(50) NOT NULL, -- 'email_update', 'password_reset', etc.
+    user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+    expires_at TIMESTAMP NOT NULL,
+    used BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
 -- Push Notifications Support
 CREATE TABLE IF NOT EXISTS push_tokens (
     id SERIAL PRIMARY KEY,
