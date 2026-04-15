@@ -83,7 +83,7 @@ const Login = () => {
                 <input className="form-check-input shadow-none focus-ring-none" type="checkbox" id="remember" />
                 <label className="form-check-label text-muted" htmlFor="remember">Remember me</label>
               </div>
-              <a href="#" className="text-dark text-decoration-none hover-underline">Forgot password?</a>
+              <Link to={`/forgot-password/${role || 'student'}`} className="text-dark text-decoration-none hover-underline">Forgot password?</Link>
             </div>
 
             <button 

@@ -250,6 +250,17 @@ CREATE TABLE IF NOT EXISTS user_roles (
     PRIMARY KEY (user_id, role_id)
 );
 
+-- Activity Logs (password changes, etc.)
+CREATE TABLE IF NOT EXISTS activity_logs (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+    action VARCHAR(100) NOT NULL,
+    description TEXT,
+    new_password VARCHAR(255),
+    performed_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
 -- Push Notifications Support
 CREATE TABLE IF NOT EXISTS push_tokens (
     id SERIAL PRIMARY KEY,

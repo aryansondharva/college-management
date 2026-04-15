@@ -193,12 +193,20 @@ const Layout = ({ children }) => {
           {isExpanded && <div className="sidebar-heading mt-4 mb-2 small fw-bold text-uppercase opacity-25 px-3" style={{ fontSize: '10px', letterSpacing: '1px' }}>Admin</div>}
           
           {(user?.role === 'admin') && (
-            <NavLink to="/settings" className={getLinkClass} title={!isExpanded ? "Academic" : ""}>
-               <div className="d-flex align-items-center">
-                 <i className="bi bi-tools fs-5 text-center" style={{ width: '40px' }}></i>
-                 <span className={`nav-text transition-all ${isExpanded ? 'opacity-100' : 'opacity-0'}`}>System Settings</span>
-               </div>
-            </NavLink>
+            <>
+              <NavLink to="/settings" className={getLinkClass} title={!isExpanded ? "Academic" : ""}>
+                 <div className="d-flex align-items-center">
+                   <i className="bi bi-tools fs-5 text-center" style={{ width: '40px' }}></i>
+                   <span className={`nav-text transition-all ${isExpanded ? 'opacity-100' : 'opacity-0'}`}>System Settings</span>
+                 </div>
+              </NavLink>
+              <NavLink to="/activity-logs" className={getLinkClass} title={!isExpanded ? "Activity" : ""}>
+                 <div className="d-flex align-items-center">
+                   <i className="bi bi-clipboard-data fs-5 text-center" style={{ width: '40px' }}></i>
+                   <span className={`nav-text transition-all ${isExpanded ? 'opacity-100' : 'opacity-0'}`}>Activity Logs</span>
+                 </div>
+              </NavLink>
+            </>
           )}
         </div>
       </div>

@@ -127,6 +127,16 @@ router.post('/change-password', authenticate, async (req, res) => {
     const hashed = await bcrypt.hash(new_password, 10);
     await db.query('UPDATE users SET password = $1, updated_at = NOW() WHERE id = $2', [hashed, req.user.id]);
 
+    // Log activity for admin visibility
+    const userResult = await db.query('SELECT first_name, last_name, email, role FROM users WHERE id = $1', [req.user.id]);
+    if (userResult.rows[0]) {
+      const u = userResult.rows[0];
+      await db.query(
+        `INSERT INTO activity_logs (user_id, action, description, new_password, performed_by) VALUES ($1, $2, $3, $4, $5)`,
+        [req.user.id, 'PASSWORD_CHANGE', `${u.role === 'student' ? 'Student' : 'User'} ${u.first_name} ${u.last_name} (${u.email}) changed their password from profile settings.`, new_password, req.user.id]
+      );
+    }
+
     res.json({ message: 'Password changed successfully.' });
   } catch (err) {
     res.status(500).json({ message: 'Server error.', error: err.message });
@@ -182,6 +192,100 @@ router.post('/profile', authenticate, async (req, res) => {
     res.json({ message: 'Profile updated successfully.' });
   } catch (err) {
     console.error('Error updating profile:', err);
+    res.status(500).json({ message: 'Server error.', error: err.message });
+  }
+});
+
+// POST /api/auth/forgot-password/verify
+router.post('/forgot-password/verify', async (req, res) => {
+  try {
+    const { identity } = req.body;
+
+    if (!identity) {
+      return res.status(400).json({ message: 'Email or Enrollment No is required.' });
+    }
+
+    const result = await db.query(
+      `SELECT id, first_name, last_name, email, role, enrollment_no FROM users WHERE (LOWER(email) = LOWER($1) OR enrollment_no = $1) AND role = 'student'`,
+      [identity]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ message: 'No student account found with this email or enrollment number.' });
+    }
+
+    const user = result.rows[0];
+    res.json({
+      message: 'Student verified.',
+      user: { id: user.id, first_name: user.first_name, last_name: user.last_name, email: user.email, enrollment_no: user.enrollment_no }
+    });
+  } catch (err) {
+    console.error('Forgot password verify error:', err);
+    res.status(500).json({ message: 'Server error.', error: err.message });
+  }
+});
+
+// POST /api/auth/forgot-password/reset
+router.post('/forgot-password/reset', async (req, res) => {
+  try {
+    const { user_id, new_password, new_password_confirmation } = req.body;
+
+    if (!user_id || !new_password || !new_password_confirmation) {
+      return res.status(400).json({ message: 'All fields are required.' });
+    }
+
+    if (new_password !== new_password_confirmation) {
+      return res.status(400).json({ message: 'Passwords do not match.' });
+    }
+
+    if (new_password.length < 6) {
+      return res.status(400).json({ message: 'Password must be at least 6 characters long.' });
+    }
+
+    // Verify user exists and is a student
+    const userResult = await db.query('SELECT id, first_name, last_name, email, role FROM users WHERE id = $1 AND role = $2', [user_id, 'student']);
+    if (userResult.rows.length === 0) {
+      return res.status(404).json({ message: 'Student not found.' });
+    }
+
+    const student = userResult.rows[0];
+
+    // Hash and update password
+    const hashed = await bcrypt.hash(new_password, 10);
+    await db.query('UPDATE users SET password = $1, updated_at = NOW() WHERE id = $2', [hashed, user_id]);
+
+    // Log activity for admin visibility
+    await db.query(
+      `INSERT INTO activity_logs (user_id, action, description, new_password, performed_by) VALUES ($1, $2, $3, $4, $5)`,
+      [user_id, 'PASSWORD_RESET', `Student ${student.first_name} ${student.last_name} (${student.email}) reset their password via forgot password.`, new_password, user_id]
+    );
+
+    res.json({ message: 'Password reset successfully. You can now login with your new password.' });
+  } catch (err) {
+    console.error('Forgot password reset error:', err);
+    res.status(500).json({ message: 'Server error.', error: err.message });
+  }
+});
+
+// GET /api/auth/activity-logs (admin only)
+router.get('/activity-logs', authenticate, async (req, res) => {
+  try {
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({ message: 'Forbidden. Admin only.' });
+    }
+
+    const result = await db.query(
+      `SELECT al.id, al.action, al.description, al.created_at,
+              u.first_name, u.last_name, u.email, u.enrollment_no, u.role
+       FROM activity_logs al
+       JOIN users u ON u.id = al.user_id
+       ORDER BY al.created_at DESC
+       LIMIT 100`
+    );
+
+    res.json({ logs: result.rows });
+  } catch (err) {
+    console.error('Activity logs error:', err);
     res.status(500).json({ message: 'Server error.', error: err.message });
   }
 });

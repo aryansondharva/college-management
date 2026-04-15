@@ -35,6 +35,8 @@ import Overview from './pages/Overview';
 import Pricing from './pages/Pricing';
 import Documentation from './pages/Documentation';
 import Contact from './pages/Contact';
+import ForgotPassword from './pages/ForgotPassword';
+import ActivityLogs from './pages/ActivityLogs';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import 'bootstrap-icons/font/bootstrap-icons.css';
 import 'bootstrap/dist/js/bootstrap.bundle.min.js';
@@ -52,6 +54,8 @@ function App() {
           <Route path="/contact" element={<Contact />} />
           <Route path="/login" element={<Login />} />
           <Route path="/login/:role" element={<Login />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/forgot-password/:role" element={<ForgotPassword />} />
 
           {/* Protected Routes */}
           <Route element={<AuthRoute />}>
@@ -82,6 +86,7 @@ function App() {
             <Route path="/employees" element={<Employees />} />
             <Route path="/employees/add" element={<AddEmployee />} />
             <Route path="/settings" element={<AcademicSettings />} />
+            <Route path="/activity-logs" element={<ActivityLogs />} />
           </Route>
         </Routes>
       </Router>
