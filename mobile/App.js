@@ -39,6 +39,10 @@ Notifications.setNotificationHandler({
   }),
 });
 
+const TIMETABLE_CACHE_KEY = 'drop:timetable-cache:v1';
+const SYLLABUS_CACHE_KEY = 'drop:syllabus-cache:v1';
+const NOTIFICATION_CACHE_KEY = 'drop:notifications-cache:v1';
+
 export default function App() {
 
   const [identity, setIdentity] = useState('');
@@ -62,6 +66,30 @@ export default function App() {
   const [searching, setSearching] = useState(false);
   const [introComplete, setIntroComplete] = useState(false);
   const [introVideoFailed, setIntroVideoFailed] = useState(false);
+  const [currentSessionId, setCurrentSessionId] = useState('');
+  const [timetable, setTimetable] = useState([]);
+  const [syllabus, setSyllabus] = useState([]);
+  const [timetableLoading, setTimetableLoading] = useState(false);
+  const [syllabusLoading, setSyllabusLoading] = useState(false);
+  const [timetableOffline, setTimetableOffline] = useState(false);
+  const [syllabusOffline, setSyllabusOffline] = useState(false);
+  const [teacherFilters, setTeacherFilters] = useState({
+    session_id: '',
+    class_id: '',
+    section_id: '',
+    course_id: '',
+    date: new Date().toISOString().split('T')[0]
+  });
+  const [teacherSessions, setTeacherSessions] = useState([]);
+  const [teacherClasses, setTeacherClasses] = useState([]);
+  const [teacherSections, setTeacherSections] = useState([]);
+  const [teacherCourses, setTeacherCourses] = useState([]);
+  const [teacherStudents, setTeacherStudents] = useState([]);
+  const [teacherAttendanceMap, setTeacherAttendanceMap] = useState({});
+  const [teacherLoading, setTeacherLoading] = useState(false);
+  const [teacherSaving, setTeacherSaving] = useState(false);
+  const [teacherPerformance, setTeacherPerformance] = useState([]);
+  const [teacherPerfLoading, setTeacherPerfLoading] = useState(false);
 
   // Intro animation values
   const introOpacity = useRef(new Animated.Value(0)).current;
@@ -85,6 +113,11 @@ export default function App() {
 
   // --- SAFE DATA FETCHERS (wrapped in try/catch to prevent crashes) ---
   const fetchAttendance = useCallback(async () => {
+    if (user?.role !== 'student') {
+      setAttendance({ attended: 0, total: 0, percentage: 0 });
+      setDetailedAttendance({ overall: [], monthly: [] });
+      return;
+    }
     try {
       const [summaryRes, detailedRes] = await Promise.all([
         client.get('/attendance/student-summary'),
@@ -98,7 +131,7 @@ export default function App() {
       setAttendance({ attended: 0, total: 0, percentage: 0 });
       setDetailedAttendance({ overall: [], monthly: [] });
     }
-  }, []);
+  }, [user?.role]);
 
   const fetchAssignments = useCallback(async () => {
     try {
@@ -119,6 +152,159 @@ export default function App() {
       setContacts([]);
     }
   }, []);
+
+  const cacheData = async (key, data) => {
+    try {
+      await AsyncStorage.setItem(key, JSON.stringify({
+        updatedAt: new Date().toISOString(),
+        data
+      }));
+    } catch (e) {
+      console.log('Cache write failed:', e?.message);
+    }
+  };
+
+  const readCachedData = async (key) => {
+    try {
+      const raw = await AsyncStorage.getItem(key);
+      if (!raw) return null;
+      const parsed = JSON.parse(raw);
+      return parsed?.data || null;
+    } catch {
+      return null;
+    }
+  };
+
+  const fetchCurrentSession = useCallback(async () => {
+    try {
+      const res = await client.get('/sessions/current');
+      const id = res?.data?.session?.id ? String(res.data.session.id) : '';
+      if (id) {
+        setCurrentSessionId(id);
+      }
+      return id;
+    } catch {
+      return '';
+    }
+  }, []);
+
+  const fetchLearningData = useCallback(async () => {
+    if (!user || user?.role !== 'student') return;
+
+    const sessionId = String(user?.session_id || currentSessionId || '');
+    if (!user?.class_id || !user?.section_id || !sessionId) {
+      return;
+    }
+
+    setTimetableLoading(true);
+    setSyllabusLoading(true);
+    try {
+      const [routinesRes, coursesRes, syllabusRes] = await Promise.all([
+        client.get('/routines', {
+          params: {
+            class_id: user.class_id,
+            section_id: user.section_id,
+            session_id: sessionId
+          }
+        }),
+        client.get('/courses', { params: { class_id: user.class_id } }),
+        client.get('/syllabus', { params: { session_id: sessionId } })
+      ]);
+
+      const routines = routinesRes?.data?.routines || [];
+      const courses = coursesRes?.data?.courses || [];
+      const syllabi = syllabusRes?.data?.syllabi || [];
+      const courseMap = courses.reduce((acc, c) => {
+        acc[String(c.id)] = c;
+        return acc;
+      }, {});
+      const classCourseIds = new Set(courses.map(c => String(c.id)));
+
+      const syllabusForClass = syllabi
+        .filter(item =>
+          String(item?.class_id || '') === String(user.class_id) ||
+          classCourseIds.has(String(item?.course_id || ''))
+        )
+        .map(item => ({
+          ...item,
+          course_name: courseMap[String(item.course_id)]?.name || 'General',
+          course_code: courseMap[String(item.course_id)]?.code || ''
+        }));
+
+      setTimetable(routines);
+      setSyllabus(syllabusForClass);
+      setTimetableOffline(false);
+      setSyllabusOffline(false);
+      cacheData(TIMETABLE_CACHE_KEY, routines);
+      cacheData(SYLLABUS_CACHE_KEY, syllabusForClass);
+    } catch (err) {
+      console.error('Learning data fetch failed:', err?.message || err);
+      const [cachedTimetable, cachedSyllabus] = await Promise.all([
+        readCachedData(TIMETABLE_CACHE_KEY),
+        readCachedData(SYLLABUS_CACHE_KEY)
+      ]);
+
+      if (cachedTimetable) {
+        setTimetable(cachedTimetable);
+        setTimetableOffline(true);
+      } else {
+        setTimetable([]);
+      }
+      if (cachedSyllabus) {
+        setSyllabus(cachedSyllabus);
+        setSyllabusOffline(true);
+      } else {
+        setSyllabus([]);
+      }
+    } finally {
+      setTimetableLoading(false);
+      setSyllabusLoading(false);
+    }
+  }, [user, currentSessionId]);
+
+  const fetchTeacherInitialData = useCallback(async () => {
+    if (!user || user?.role !== 'teacher') return;
+    setTeacherLoading(true);
+    try {
+      const [sessionRes, currentSessionRes] = await Promise.all([
+        client.get('/sessions'),
+        client.get('/sessions/current')
+      ]);
+
+      const sessions = sessionRes?.data?.sessions || [];
+      const currentId = String(
+        currentSessionRes?.data?.session?.id ||
+        sessions.find(s => s.current)?.id ||
+        sessions[0]?.id ||
+        ''
+      );
+
+      setTeacherSessions(sessions);
+      if (currentId) {
+        setTeacherFilters(prev => ({ ...prev, session_id: currentId }));
+        const classesRes = await client.get('/classes', { params: { session_id: currentId } });
+        setTeacherClasses(classesRes?.data?.classes || []);
+      }
+    } catch (err) {
+      console.error('Teacher init failed:', err?.message || err);
+    } finally {
+      setTeacherLoading(false);
+    }
+  }, [user]);
+
+  const fetchTeacherClassMeta = async (classId) => {
+    if (!classId) return;
+    try {
+      const [sectionsRes, coursesRes] = await Promise.all([
+        client.get('/sections', { params: { class_id: classId } }),
+        client.get('/courses', { params: { class_id: classId } })
+      ]);
+      setTeacherSections(sectionsRes?.data?.sections || []);
+      setTeacherCourses(coursesRes?.data?.courses || []);
+    } catch (err) {
+      console.error('Teacher class meta failed:', err?.message || err);
+    }
+  };
 
   const handleSearch = async (query) => {
     setSearchQuery(query);
@@ -166,6 +352,24 @@ export default function App() {
     };
     checkLogin();
   }, []);
+
+  useEffect(() => {
+    readCachedData(NOTIFICATION_CACHE_KEY).then((cached) => {
+      if (Array.isArray(cached)) {
+        setNotificationsHistory(cached.slice(0, 20));
+      }
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!notificationsHistory?.length) return;
+    cacheData(NOTIFICATION_CACHE_KEY, notificationsHistory.slice(0, 20));
+  }, [notificationsHistory]);
+
+  useEffect(() => {
+    if (!user) return;
+    fetchCurrentSession();
+  }, [user?.id, fetchCurrentSession]);
 
   // --- APP UPDATE CHECK ---
   useEffect(() => {
@@ -288,8 +492,30 @@ export default function App() {
   useEffect(() => {
     if (!user) return;
     if (currentTab === 'chat') fetchContacts();
-    if (currentTab === 'schedule') fetchAssignments();
+    if (user?.role === 'teacher') {
+      if (currentTab === 'schedule') fetchTeacherInitialData();
+      if (currentTab === 'syllabus') fetchTeacherInitialData();
+      return;
+    }
+    if (currentTab === 'schedule') {
+      fetchAssignments();
+      fetchLearningData();
+    }
+    if (currentTab === 'syllabus') fetchLearningData();
   }, [currentTab, user?.id]);
+
+  useEffect(() => {
+    if (!user || user?.role !== 'teacher' || !teacherFilters.session_id) return;
+    client.get('/classes', { params: { session_id: teacherFilters.session_id } })
+      .then((res) => setTeacherClasses(res?.data?.classes || []))
+      .catch((err) => console.error('Teacher classes fetch failed:', err?.message || err));
+  }, [teacherFilters.session_id, user?.id]);
+
+  useEffect(() => {
+    if (!user || user?.role !== 'student') return;
+    if (currentTab !== 'schedule' && currentTab !== 'syllabus') return;
+    fetchLearningData();
+  }, [currentSessionId, user?.id, currentTab]);
 
   // --- PUSH NOTIFICATIONS ---
   useEffect(() => {
@@ -323,8 +549,13 @@ export default function App() {
 
     const responseListener = Notifications?.addNotificationResponseReceivedListener?.(response => {
       try {
-        if (response?.notification?.request?.content?.data?.type === 'attendance') {
+        const type = response?.notification?.request?.content?.data?.type;
+        if (type === 'attendance') {
            setCurrentTab('attendance');
+        } else if (type === 'assignment') {
+          setCurrentTab('schedule');
+        } else if (type === 'syllabus') {
+          setCurrentTab('syllabus');
         }
       } catch (e) {
         console.error('Notification response listener error:', e);
@@ -336,6 +567,116 @@ export default function App() {
       responseListener?.remove?.();
     };
   }, [user?.id]);
+
+  const fetchTeacherAttendanceData = async () => {
+    if (!teacherFilters.session_id || !teacherFilters.class_id || !teacherFilters.section_id || !teacherFilters.date) {
+      Alert.alert('Missing Filters', 'Please select session, class, section and date.');
+      return;
+    }
+    setTeacherLoading(true);
+    try {
+      const [studentRes, attendRes] = await Promise.all([
+        client.get('/users/students', { params: teacherFilters }),
+        client.get('/attendance', { params: teacherFilters })
+      ]);
+
+      const students = studentRes?.data?.students || [];
+      const attendances = attendRes?.data?.attendances || [];
+      const initialMap = {};
+
+      students.forEach((student) => {
+        const record = attendances.find((a) =>
+          a.student_id === student.id &&
+          (!teacherFilters.course_id || String(a.course_id || '') === String(teacherFilters.course_id))
+        );
+        initialMap[student.id] = { [teacherFilters.course_id || '0']: record ? !!record.present : true };
+      });
+
+      setTeacherStudents(students);
+      setTeacherAttendanceMap(initialMap);
+    } catch (err) {
+      console.error('Teacher attendance fetch failed:', err?.message || err);
+      Alert.alert('Error', 'Failed to load attendance data.');
+    } finally {
+      setTeacherLoading(false);
+    }
+  };
+
+  const toggleTeacherAttendance = (studentId) => {
+    const courseKey = teacherFilters.course_id || '0';
+    setTeacherAttendanceMap(prev => ({
+      ...prev,
+      [studentId]: {
+        ...prev[studentId],
+        [courseKey]: !prev?.[studentId]?.[courseKey]
+      }
+    }));
+  };
+
+  const saveTeacherAttendance = async () => {
+    if (!teacherFilters.session_id || !teacherFilters.class_id || !teacherFilters.section_id || !teacherFilters.date) {
+      Alert.alert('Missing Filters', 'Please complete attendance filters.');
+      return;
+    }
+    setTeacherSaving(true);
+    try {
+      const courseKey = teacherFilters.course_id || '0';
+      const attendance_data = Object.keys(teacherAttendanceMap).map(id => ({
+        student_id: parseInt(id),
+        subjects: {
+          [courseKey]: !!teacherAttendanceMap[id]?.[courseKey]
+        }
+      }));
+
+      await client.post('/attendance', {
+        ...teacherFilters,
+        attendance_data,
+        is_bulk_subjects: true
+      });
+      Alert.alert('Success', 'Attendance saved successfully.');
+      fetchTeacherAttendanceData();
+    } catch (err) {
+      console.error('Teacher attendance save failed:', err?.message || err);
+      Alert.alert('Error', 'Failed to save attendance.');
+    } finally {
+      setTeacherSaving(false);
+    }
+  };
+
+  const fetchTeacherPerformance = async () => {
+    if (!teacherFilters.session_id || !teacherFilters.class_id || !teacherFilters.section_id) {
+      Alert.alert('Missing Filters', 'Please select session, class and section.');
+      return;
+    }
+    setTeacherPerfLoading(true);
+    try {
+      const res = await client.get('/attendance/overall-report', {
+        params: {
+          session_id: teacherFilters.session_id,
+          class_id: teacherFilters.class_id,
+          section_id: teacherFilters.section_id
+        }
+      });
+      const report = res?.data?.report || [];
+      const transformed = report.map((student) => {
+        const subjectStats = Object.values(student?.subjects || {});
+        const attended = subjectStats.reduce((sum, s) => sum + (parseInt(s?.attended || 0) || 0), 0);
+        const total = subjectStats.reduce((sum, s) => sum + (parseInt(s?.total || 0) || 0), 0);
+        return {
+          ...student,
+          attended,
+          total,
+          percentage: total > 0 ? Math.round((attended / total) * 100) : 0
+        };
+      });
+      setTeacherPerformance(transformed);
+    } catch (err) {
+      console.error('Teacher performance fetch failed:', err?.message || err);
+      Alert.alert('Error', 'Failed to load class performance.');
+    } finally {
+      setTeacherPerfLoading(false);
+    }
+  };
 
   async function registerForPushNotificationsAsync() {
     let token;
@@ -1107,10 +1448,32 @@ export default function App() {
       )}
 
       {currentTab === 'schedule' && (
-        <AssignmentsScreen 
-          assignments={assignments} 
-          loading={loading} 
-        />
+        user?.role === 'teacher' ? (
+          <TeacherAttendanceScreen
+            teacherFilters={teacherFilters}
+            setTeacherFilters={setTeacherFilters}
+            teacherSessions={teacherSessions}
+            teacherClasses={teacherClasses}
+            teacherSections={teacherSections}
+            teacherCourses={teacherCourses}
+            teacherStudents={teacherStudents}
+            teacherAttendanceMap={teacherAttendanceMap}
+            teacherLoading={teacherLoading}
+            teacherSaving={teacherSaving}
+            fetchTeacherClassMeta={fetchTeacherClassMeta}
+            fetchTeacherAttendanceData={fetchTeacherAttendanceData}
+            toggleTeacherAttendance={toggleTeacherAttendance}
+            saveTeacherAttendance={saveTeacherAttendance}
+          />
+        ) : (
+          <AssignmentsScreen
+            assignments={assignments}
+            loading={loading}
+            timetable={timetable}
+            timetableLoading={timetableLoading}
+            timetableOffline={timetableOffline}
+          />
+        )
       )}
       {currentTab === 'chat' && (
         <ChatScreen 
@@ -1128,7 +1491,27 @@ export default function App() {
           searching={searching}
         />
       )}
-      {currentTab === 'syllabus' && <ComingSoon />}
+      {currentTab === 'syllabus' && (
+        user?.role === 'teacher' ? (
+          <TeacherPerformanceScreen
+            teacherFilters={teacherFilters}
+            setTeacherFilters={setTeacherFilters}
+            teacherSessions={teacherSessions}
+            teacherClasses={teacherClasses}
+            teacherSections={teacherSections}
+            teacherPerformance={teacherPerformance}
+            teacherPerfLoading={teacherPerfLoading}
+            fetchTeacherClassMeta={fetchTeacherClassMeta}
+            fetchTeacherPerformance={fetchTeacherPerformance}
+          />
+        ) : (
+          <SyllabusScreen
+            syllabus={syllabus}
+            syllabusLoading={syllabusLoading}
+            syllabusOffline={syllabusOffline}
+          />
+        )
+      )}
 
       {/* BOTTOM NAV */}
       <View style={styles.navBar}>
@@ -1145,7 +1528,9 @@ export default function App() {
           onPress={() => setCurrentTab('schedule')}
         >
           <Calendar size={22} color={currentTab === 'schedule' ? "#121212" : "#BBB"} />
-          <Text style={[styles.navTxt, { color: currentTab === 'schedule' ? '#121212' : '#BBB' }]}>Tasks</Text>
+          <Text style={[styles.navTxt, { color: currentTab === 'schedule' ? '#121212' : '#BBB' }]}>
+            {user?.role === 'teacher' ? 'Mark' : 'Tasks'}
+          </Text>
           {currentTab === 'schedule' && <View style={styles.navDot} />}
         </TouchableOpacity>
         <TouchableOpacity
@@ -1153,7 +1538,9 @@ export default function App() {
           onPress={() => setCurrentTab('syllabus')}
         >
           <BookOpen size={22} color={currentTab === 'syllabus' ? "#121212" : "#BBB"} />
-          <Text style={[styles.navTxt, { color: currentTab === 'syllabus' ? '#121212' : '#BBB' }]}>Syllabus</Text>
+          <Text style={[styles.navTxt, { color: currentTab === 'syllabus' ? '#121212' : '#BBB' }]}>
+            {user?.role === 'teacher' ? 'Performance' : 'Syllabus'}
+          </Text>
           {currentTab === 'syllabus' && <View style={styles.navDot} />}
         </TouchableOpacity>
         <TouchableOpacity
@@ -1552,10 +1939,18 @@ function ChatScreen({
   );
 }
 
-function AssignmentsScreen({ assignments, loading }) {
+function AssignmentsScreen({ assignments, loading, timetable, timetableLoading, timetableOffline }) {
   const getBadgeColor = (audience) => {
     return audience === 'failure' ? '#FF5A5F' : '#121212';
   };
+
+  const dayOrder = { Monday: 1, Tuesday: 2, Wednesday: 3, Thursday: 4, Friday: 5, Saturday: 6, Sunday: 7 };
+  const groupedTimetable = (timetable || []).reduce((acc, item) => {
+    const day = item?.day_of_week || 'Other';
+    if (!acc[day]) acc[day] = [];
+    acc[day].push(item);
+    return acc;
+  }, {});
 
   return (
     <View style={{ flex: 1, backgroundColor: '#FFF' }}>
@@ -1570,6 +1965,35 @@ function AssignmentsScreen({ assignments, loading }) {
       </View>
 
       <ScrollView style={styles.main} showsVerticalScrollIndicator={false}>
+        <Text style={styles.sectionHeader}>Weekly Timetable {timetableOffline ? '(Offline)' : ''}</Text>
+        {timetableLoading ? (
+          <ActivityIndicator size="small" color="#121212" style={{ marginVertical: 10 }} />
+        ) : (
+          Object.keys(groupedTimetable)
+            .sort((a, b) => (dayOrder[a] || 99) - (dayOrder[b] || 99))
+            .map((day) => (
+              <View key={day} style={styles.taskCard}>
+                <Text style={[styles.taskTitle, { fontSize: 16, marginBottom: 10 }]}>{day}</Text>
+                {(groupedTimetable[day] || [])
+                  .sort((a, b) => String(a?.start_time || '').localeCompare(String(b?.start_time || '')))
+                  .map((slot) => (
+                    <View key={slot.id} style={styles.timetableRow}>
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.timetableSubject}>{slot.course_name || 'Subject'}</Text>
+                        <Text style={styles.timetableMeta}>
+                          {slot.start_time?.slice(0, 5) || '--:--'} - {slot.end_time?.slice(0, 5) || '--:--'}
+                        </Text>
+                      </View>
+                      <Text style={styles.timetableRoom}>{slot.room_no || 'Room -'}</Text>
+                    </View>
+                  ))}
+              </View>
+            ))
+        )}
+        {!timetableLoading && (timetable || []).length === 0 && (
+          <Text style={{ color: '#BBB', fontWeight: '700', marginBottom: 20 }}>No timetable data found.</Text>
+        )}
+
         <Text style={styles.sectionHeader}>Upcoming Deadlines</Text>
         
         {assignments.map((task) => (
@@ -1626,6 +2050,257 @@ function AssignmentsScreen({ assignments, loading }) {
         )}
 
         <View style={{ height: 100 }} />
+      </ScrollView>
+    </View>
+  );
+}
+
+function SyllabusScreen({ syllabus, syllabusLoading, syllabusOffline }) {
+  return (
+    <View style={{ flex: 1, backgroundColor: '#FFF' }}>
+      <View style={[styles.header, { paddingBottom: 25 }]}>
+        <Text style={styles.welcome}>Learning Materials</Text>
+        <Text style={styles.userName}>Syllabus {syllabusOffline ? '(Offline)' : ''}</Text>
+      </View>
+      <ScrollView style={styles.main} showsVerticalScrollIndicator={false}>
+        <Text style={styles.sectionHeader}>Course Outline</Text>
+        {syllabusLoading ? (
+          <ActivityIndicator size="small" color="#121212" style={{ marginTop: 10 }} />
+        ) : (
+          (syllabus || []).map((item) => (
+            <View key={item.id} style={styles.taskCard}>
+              <Text style={styles.taskSubject}>{item.course_code || 'COURSE'}</Text>
+              <Text style={styles.taskTitle}>{item.syllabus_name || item.course_name || 'Syllabus'}</Text>
+              <Text style={styles.taskDesc}>{item.course_name || 'General Course'}</Text>
+              {item.file_path ? (
+                <TouchableOpacity style={styles.attachmentPin} onPress={() => Linking.openURL(`${SOCKET_URL}/${item.file_path}`)}>
+                  <AlertCircle size={14} color="#3498db" />
+                  <Text style={styles.attachmentText}>Open attached file</Text>
+                </TouchableOpacity>
+              ) : null}
+            </View>
+          ))
+        )}
+        {!syllabusLoading && (syllabus || []).length === 0 && (
+          <View style={{ paddingVertical: 40 }}>
+            <Text style={{ color: '#BBB', fontWeight: '700' }}>No syllabus available for your class yet.</Text>
+          </View>
+        )}
+        <View style={{ height: 100 }} />
+      </ScrollView>
+    </View>
+  );
+}
+
+function TeacherAttendanceScreen({
+  teacherFilters,
+  setTeacherFilters,
+  teacherSessions,
+  teacherClasses,
+  teacherSections,
+  teacherCourses,
+  teacherStudents,
+  teacherAttendanceMap,
+  teacherLoading,
+  teacherSaving,
+  fetchTeacherClassMeta,
+  fetchTeacherAttendanceData,
+  toggleTeacherAttendance,
+  saveTeacherAttendance
+}) {
+  return (
+    <View style={{ flex: 1, backgroundColor: '#FFF' }}>
+      <View style={[styles.header, { paddingBottom: 25 }]}>
+        <Text style={styles.welcome}>Faculty Tools</Text>
+        <Text style={styles.userName}>Mark Attendance</Text>
+      </View>
+      <ScrollView style={styles.main} showsVerticalScrollIndicator={false}>
+        <Text style={styles.sectionHeader}>Class Filters</Text>
+        <View style={styles.taskCard}>
+          <Text style={styles.inputLabel}>Session</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 10 }}>
+            {teacherSessions.map(s => (
+              <TouchableOpacity
+                key={s.id}
+                style={[styles.pillBtn, String(teacherFilters.session_id) === String(s.id) && styles.pillBtnActive]}
+                onPress={() => setTeacherFilters(prev => ({ ...prev, session_id: String(s.id), class_id: '', section_id: '', course_id: '' }))}
+              >
+                <Text style={[styles.pillBtnText, String(teacherFilters.session_id) === String(s.id) && styles.pillBtnTextActive]}>{s.session}</Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+
+          <Text style={styles.inputLabel}>Class</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 10 }}>
+            {teacherClasses.map(c => (
+              <TouchableOpacity
+                key={c.id}
+                style={[styles.pillBtn, String(teacherFilters.class_id) === String(c.id) && styles.pillBtnActive]}
+                onPress={() => {
+                  setTeacherFilters(prev => ({ ...prev, class_id: String(c.id), section_id: '', course_id: '' }));
+                  fetchTeacherClassMeta(String(c.id));
+                }}
+              >
+                <Text style={[styles.pillBtnText, String(teacherFilters.class_id) === String(c.id) && styles.pillBtnTextActive]}>{c.name}</Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+
+          <Text style={styles.inputLabel}>Section</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 10 }}>
+            {teacherSections.map(s => (
+              <TouchableOpacity
+                key={s.id}
+                style={[styles.pillBtn, String(teacherFilters.section_id) === String(s.id) && styles.pillBtnActive]}
+                onPress={() => setTeacherFilters(prev => ({ ...prev, section_id: String(s.id) }))}
+              >
+                <Text style={[styles.pillBtnText, String(teacherFilters.section_id) === String(s.id) && styles.pillBtnTextActive]}>{s.name}</Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+
+          <Text style={styles.inputLabel}>Subject (Optional)</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 12 }}>
+            <TouchableOpacity
+              style={[styles.pillBtn, String(teacherFilters.course_id) === '' && styles.pillBtnActive]}
+              onPress={() => setTeacherFilters(prev => ({ ...prev, course_id: '' }))}
+            >
+              <Text style={[styles.pillBtnText, String(teacherFilters.course_id) === '' && styles.pillBtnTextActive]}>All</Text>
+            </TouchableOpacity>
+            {teacherCourses.map(c => (
+              <TouchableOpacity
+                key={c.id}
+                style={[styles.pillBtn, String(teacherFilters.course_id) === String(c.id) && styles.pillBtnActive]}
+                onPress={() => setTeacherFilters(prev => ({ ...prev, course_id: String(c.id) }))}
+              >
+                <Text style={[styles.pillBtnText, String(teacherFilters.course_id) === String(c.id) && styles.pillBtnTextActive]}>{c.code || c.name}</Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+
+          <View style={[styles.modernInputGroup, { backgroundColor: '#FFF', borderColor: '#EEE', height: 54 }]}>
+            <TextInput
+              style={[styles.modernInput, { color: '#121212' }]}
+              value={teacherFilters.date}
+              onChangeText={(t) => setTeacherFilters(prev => ({ ...prev, date: t }))}
+              placeholder="YYYY-MM-DD"
+              placeholderTextColor="#AAA"
+            />
+          </View>
+
+          <TouchableOpacity style={[styles.saveBtn, { marginTop: 15, height: 52 }]} onPress={fetchTeacherAttendanceData} disabled={teacherLoading}>
+            {teacherLoading ? <ActivityIndicator color="#000" /> : <Text style={styles.saveBtnText}>Load Students</Text>}
+          </TouchableOpacity>
+        </View>
+
+        <Text style={styles.sectionHeader}>Student List</Text>
+        {(teacherStudents || []).map((student) => {
+          const key = teacherFilters.course_id || '0';
+          const present = !!teacherAttendanceMap?.[student.id]?.[key];
+          return (
+            <TouchableOpacity key={student.id} style={styles.contactCard} onPress={() => toggleTeacherAttendance(student.id)}>
+              <View style={styles.contactAvatar}>
+                <Text style={styles.avatarTxt}>{student?.first_name?.[0] || '?'}</Text>
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.contactName}>{student.first_name} {student.last_name}</Text>
+                <Text style={styles.contactRole}>{student.enrollment_no || `ID: ${student.id}`}</Text>
+              </View>
+              <View style={[styles.statusTag, { backgroundColor: present ? '#e6f7ec' : '#fbe9e9' }]}>
+                <Text style={{ color: present ? '#2ecc71' : '#FF5A5F', fontWeight: '900' }}>{present ? 'P' : 'A'}</Text>
+              </View>
+            </TouchableOpacity>
+          );
+        })}
+        {(teacherStudents || []).length > 0 && (
+          <TouchableOpacity style={[styles.saveBtn, { marginTop: 20, marginBottom: 100, height: 55 }]} onPress={saveTeacherAttendance} disabled={teacherSaving}>
+            {teacherSaving ? <ActivityIndicator color="#000" /> : <Text style={styles.saveBtnText}>Submit Attendance</Text>}
+          </TouchableOpacity>
+        )}
+      </ScrollView>
+    </View>
+  );
+}
+
+function TeacherPerformanceScreen({
+  teacherFilters,
+  setTeacherFilters,
+  teacherSessions,
+  teacherClasses,
+  teacherSections,
+  teacherPerformance,
+  teacherPerfLoading,
+  fetchTeacherClassMeta,
+  fetchTeacherPerformance
+}) {
+  return (
+    <View style={{ flex: 1, backgroundColor: '#FFF' }}>
+      <View style={[styles.header, { paddingBottom: 25 }]}>
+        <Text style={styles.welcome}>Faculty Analytics</Text>
+        <Text style={styles.userName}>Class Performance</Text>
+      </View>
+      <ScrollView style={styles.main} showsVerticalScrollIndicator={false}>
+        <Text style={styles.sectionHeader}>Filters</Text>
+        <View style={styles.taskCard}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 10 }}>
+            {teacherSessions.map(s => (
+              <TouchableOpacity
+                key={s.id}
+                style={[styles.pillBtn, String(teacherFilters.session_id) === String(s.id) && styles.pillBtnActive]}
+                onPress={() => setTeacherFilters(prev => ({ ...prev, session_id: String(s.id), class_id: '', section_id: '' }))}
+              >
+                <Text style={[styles.pillBtnText, String(teacherFilters.session_id) === String(s.id) && styles.pillBtnTextActive]}>{s.session}</Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 10 }}>
+            {teacherClasses.map(c => (
+              <TouchableOpacity
+                key={c.id}
+                style={[styles.pillBtn, String(teacherFilters.class_id) === String(c.id) && styles.pillBtnActive]}
+                onPress={() => {
+                  setTeacherFilters(prev => ({ ...prev, class_id: String(c.id), section_id: '' }));
+                  fetchTeacherClassMeta(String(c.id));
+                }}
+              >
+                <Text style={[styles.pillBtnText, String(teacherFilters.class_id) === String(c.id) && styles.pillBtnTextActive]}>{c.name}</Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 12 }}>
+            {teacherSections.map(s => (
+              <TouchableOpacity
+                key={s.id}
+                style={[styles.pillBtn, String(teacherFilters.section_id) === String(s.id) && styles.pillBtnActive]}
+                onPress={() => setTeacherFilters(prev => ({ ...prev, section_id: String(s.id) }))}
+              >
+                <Text style={[styles.pillBtnText, String(teacherFilters.section_id) === String(s.id) && styles.pillBtnTextActive]}>{s.name}</Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+          <TouchableOpacity style={[styles.saveBtn, { marginTop: 10, height: 52 }]} onPress={fetchTeacherPerformance} disabled={teacherPerfLoading}>
+            {teacherPerfLoading ? <ActivityIndicator color="#000" /> : <Text style={styles.saveBtnText}>Load Performance</Text>}
+          </TouchableOpacity>
+        </View>
+
+        <Text style={styles.sectionHeader}>Attendance Summary</Text>
+        {(teacherPerformance || []).map((s) => (
+          <View key={s.id} style={styles.taskCard}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.taskTitle}>{s.name}</Text>
+                <Text style={styles.taskSubject}>{s.enrollment_no || `ID: ${s.id}`}</Text>
+              </View>
+              <View style={[styles.statusTag, { backgroundColor: s.percentage >= 75 ? '#e6f7ec' : '#fbe9e9' }]}>
+                <Text style={{ color: s.percentage >= 75 ? '#2ecc71' : '#FF5A5F', fontWeight: '900' }}>{s.percentage}%</Text>
+              </View>
+            </View>
+            <Text style={styles.taskDesc}>Attended {s.attended} of {s.total} classes</Text>
+          </View>
+        ))}
+        {!teacherPerfLoading && (teacherPerformance || []).length === 0 && (
+          <Text style={{ color: '#BBB', fontWeight: '700', marginBottom: 100 }}>No performance data available.</Text>
+        )}
       </ScrollView>
     </View>
   );
@@ -1862,6 +2537,15 @@ const styles = StyleSheet.create({
   taskBtnText: { fontSize: 12, fontWeight: '800', color: '#121212' },
   attachmentPin: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#e1f5fe', padding: 10, borderRadius: 10, marginBottom: 15 },
   attachmentText: { color: '#01579b', fontSize: 12, fontWeight: '800', marginLeft: 8 },
+  timetableRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderTopWidth: 1, borderTopColor: '#F5F5F5', paddingTop: 10, marginTop: 10 },
+  timetableSubject: { fontSize: 14, fontWeight: '800', color: '#121212' },
+  timetableMeta: { fontSize: 11, color: '#888', fontWeight: '700', marginTop: 2 },
+  timetableRoom: { fontSize: 11, color: '#666', fontWeight: '800' },
+  pillBtn: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 14, borderWidth: 1, borderColor: '#DDD', marginRight: 8, backgroundColor: '#FFF' },
+  pillBtnActive: { backgroundColor: '#121212', borderColor: '#121212' },
+  pillBtnText: { fontSize: 11, fontWeight: '800', color: '#666' },
+  pillBtnTextActive: { color: '#FFF' },
+  statusTag: { minWidth: 36, alignItems: 'center', justifyContent: 'center', borderRadius: 10, paddingHorizontal: 10, paddingVertical: 7 },
 
   // --- CHAT STYLES ---
   contactCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFF', padding: 15, borderRadius: 20, marginBottom: 12, borderWidth: 1, borderColor: '#F5F5F5' },
