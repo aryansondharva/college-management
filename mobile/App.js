@@ -42,6 +42,7 @@ Notifications.setNotificationHandler({
 const TIMETABLE_CACHE_KEY = 'drop:timetable-cache:v1';
 const SYLLABUS_CACHE_KEY = 'drop:syllabus-cache:v1';
 const NOTIFICATION_CACHE_KEY = 'drop:notifications-cache:v1';
+const DAY_ORDER = { Monday: 1, Tuesday: 2, Wednesday: 3, Thursday: 4, Friday: 5, Saturday: 6, Sunday: 7 };
 
 export default function App() {
 
@@ -187,6 +188,12 @@ export default function App() {
       return '';
     }
   }, []);
+
+  const getSafeFileUrl = (filePath) => {
+    const safePath = String(filePath || '').trim().replace(/^\/+/, '');
+    if (!safePath || safePath.includes('..') || /^https?:\/\//i.test(safePath)) return null;
+    return `${SOCKET_URL}/${encodeURI(safePath)}`;
+  };
 
   const fetchLearningData = useCallback(async () => {
     if (!user || user?.role !== 'student') return;
@@ -589,7 +596,7 @@ export default function App() {
           a.student_id === student.id &&
           (!teacherFilters.course_id || String(a.course_id || '') === String(teacherFilters.course_id))
         );
-        initialMap[student.id] = { [teacherFilters.course_id || '0']: record ? !!record.present : true };
+        initialMap[student.id] = { [teacherFilters.course_id || '0']: record ? !!record.present : false };
       });
 
       setTeacherStudents(students);
@@ -621,12 +628,14 @@ export default function App() {
     setTeacherSaving(true);
     try {
       const courseKey = teacherFilters.course_id || '0';
-      const attendance_data = Object.keys(teacherAttendanceMap).map(id => ({
-        student_id: parseInt(id),
+      const attendance_data = Object.keys(teacherAttendanceMap)
+        .map(id => ({
+        student_id: parseInt(id, 10),
         subjects: {
           [courseKey]: !!teacherAttendanceMap[id]?.[courseKey]
         }
-      }));
+      }))
+        .filter(item => !Number.isNaN(item.student_id));
 
       await client.post('/attendance', {
         ...teacherFilters,
@@ -1509,6 +1518,7 @@ export default function App() {
             syllabus={syllabus}
             syllabusLoading={syllabusLoading}
             syllabusOffline={syllabusOffline}
+            getSafeFileUrl={getSafeFileUrl}
           />
         )
       )}
@@ -1944,7 +1954,6 @@ function AssignmentsScreen({ assignments, loading, timetable, timetableLoading, 
     return audience === 'failure' ? '#FF5A5F' : '#121212';
   };
 
-  const dayOrder = { Monday: 1, Tuesday: 2, Wednesday: 3, Thursday: 4, Friday: 5, Saturday: 6, Sunday: 7 };
   const groupedTimetable = (timetable || []).reduce((acc, item) => {
     const day = item?.day_of_week || 'Other';
     if (!acc[day]) acc[day] = [];
@@ -1970,7 +1979,7 @@ function AssignmentsScreen({ assignments, loading, timetable, timetableLoading, 
           <ActivityIndicator size="small" color="#121212" style={{ marginVertical: 10 }} />
         ) : (
           Object.keys(groupedTimetable)
-            .sort((a, b) => (dayOrder[a] || 99) - (dayOrder[b] || 99))
+            .sort((a, b) => (DAY_ORDER[a] || 99) - (DAY_ORDER[b] || 99))
             .map((day) => (
               <View key={day} style={styles.taskCard}>
                 <Text style={[styles.taskTitle, { fontSize: 16, marginBottom: 10 }]}>{day}</Text>
@@ -2055,7 +2064,7 @@ function AssignmentsScreen({ assignments, loading, timetable, timetableLoading, 
   );
 }
 
-function SyllabusScreen({ syllabus, syllabusLoading, syllabusOffline }) {
+function SyllabusScreen({ syllabus, syllabusLoading, syllabusOffline, getSafeFileUrl }) {
   return (
     <View style={{ flex: 1, backgroundColor: '#FFF' }}>
       <View style={[styles.header, { paddingBottom: 25 }]}>
@@ -2073,7 +2082,17 @@ function SyllabusScreen({ syllabus, syllabusLoading, syllabusOffline }) {
               <Text style={styles.taskTitle}>{item.syllabus_name || item.course_name || 'Syllabus'}</Text>
               <Text style={styles.taskDesc}>{item.course_name || 'General Course'}</Text>
               {item.file_path ? (
-                <TouchableOpacity style={styles.attachmentPin} onPress={() => Linking.openURL(`${SOCKET_URL}/${item.file_path}`)}>
+                <TouchableOpacity
+                  style={styles.attachmentPin}
+                  onPress={() => {
+                    const safeUrl = getSafeFileUrl?.(item.file_path);
+                    if (!safeUrl) {
+                      Alert.alert('Invalid file', 'Unable to open this file path.');
+                      return;
+                    }
+                    Linking.openURL(safeUrl);
+                  }}
+                >
                   <AlertCircle size={14} color="#3498db" />
                   <Text style={styles.attachmentText}>Open attached file</Text>
                 </TouchableOpacity>
@@ -2200,7 +2219,7 @@ function TeacherAttendanceScreen({
           return (
             <TouchableOpacity key={student.id} style={styles.contactCard} onPress={() => toggleTeacherAttendance(student.id)}>
               <View style={styles.contactAvatar}>
-                <Text style={styles.avatarTxt}>{student?.first_name?.[0] || '?'}</Text>
+                <Text style={styles.avatarTxt}>{student?.first_name?.trim()?.[0] || '?'}</Text>
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={styles.contactName}>{student.first_name} {student.last_name}</Text>
