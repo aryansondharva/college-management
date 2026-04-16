@@ -79,6 +79,10 @@ export default function App() {
   const [emailOTP, setEmailOTP] = useState({ new_email: '', otp: '', showOTP: false });
   const [emailLoading, setEmailLoading] = useState(false);
 
+  // Forgot Password States
+  const [forgotPassword, setForgotPassword] = useState({ show: false, step: 1, enrollment: '', email: '', newPassword: '', otp: '' });
+  const [forgotLoading, setForgotLoading] = useState(false);
+
   // --- SAFE DATA FETCHERS (wrapped in try/catch to prevent crashes) ---
   const fetchAttendance = useCallback(async () => {
     try {
@@ -604,6 +608,56 @@ export default function App() {
     setEmailOTP({ new_email: '', otp: '', showOTP: false });
   };
 
+  // Forgot Password Functions
+  const handleForgotPasswordVerify = async () => {
+    if (!forgotPassword.enrollment && !forgotPassword.email) {
+      Alert.alert('Error', 'Please enter enrollment number or email');
+      return;
+    }
+    setForgotLoading(true);
+    try {
+      await client.post('/auth/forgot-password-verify', {
+        enrollment_no: forgotPassword.enrollment,
+        email: forgotPassword.email
+      });
+      setForgotPassword({ ...forgotPassword, step: 2 });
+      Alert.alert('Success', 'Identity verified! Please set your new password.');
+    } catch (err) {
+      Alert.alert('Error', err.response?.data?.message || 'Failed to verify identity');
+    } finally {
+      setForgotLoading(false);
+    }
+  };
+
+  const handleForgotPasswordReset = async () => {
+    if (!forgotPassword.newPassword) {
+      Alert.alert('Error', 'Please enter a new password');
+      return;
+    }
+    if (forgotPassword.newPassword.length < 6) {
+      Alert.alert('Error', 'Password must be at least 6 characters long');
+      return;
+    }
+    setForgotLoading(true);
+    try {
+      await client.post('/auth/forgot-password-reset', {
+        enrollment_no: forgotPassword.enrollment,
+        email: forgotPassword.email,
+        new_password: forgotPassword.newPassword
+      });
+      Alert.alert('Success', 'Password reset successfully! Please login with your new password.');
+      setForgotPassword({ show: false, step: 1, enrollment: '', email: '', newPassword: '', otp: '' });
+    } catch (err) {
+      Alert.alert('Error', err.response?.data?.message || 'Failed to reset password');
+    } finally {
+      setForgotLoading(false);
+    }
+  };
+
+  const cancelForgotPassword = () => {
+    setForgotPassword({ show: false, step: 1, enrollment: '', email: '', newPassword: '', otp: '' });
+  };
+
   const ComingSoon = () => (
     <View style={styles.comingSoonLayer}>
       <View style={styles.csContent}>
@@ -622,11 +676,101 @@ export default function App() {
     </View>
   );
 
+  const ForgotPasswordScreen = () => (
+    <View style={styles.comingSoonLayer}>
+      <View style={styles.csContent}>
+        <View style={styles.csIconBox}>
+          <Lock size={40} color="#FFF" />
+        </View>
+        <Text style={styles.csTitle}>Reset Password</Text>
+        
+        {forgotPassword.step === 1 ? (
+          <>
+            <Text style={styles.csDesc}>Verify your identity to reset your password</Text>
+            
+            <View style={[styles.modernInputGroup, { marginTop: 20, width: '100%' }]}>
+              <TextInput
+                style={styles.modernInput}
+                placeholder="Enrollment Number"
+                placeholderTextColor="#333"
+                value={forgotPassword.enrollment}
+                onChangeText={(t) => setForgotPassword({ ...forgotPassword, enrollment: t })}
+                autoCapitalize="none"
+              />
+              <User color="#444" size={20} />
+            </View>
+
+            <View style={[styles.modernInputGroup, { marginTop: 10, width: '100%' }]}>
+              <TextInput
+                style={styles.modernInput}
+                placeholder="Email Address"
+                placeholderTextColor="#333"
+                value={forgotPassword.email}
+                onChangeText={(t) => setForgotPassword({ ...forgotPassword, email: t })}
+                keyboardType="email-address"
+                autoCapitalize="none"
+              />
+              <Text style={{ color: '#444', fontSize: 16 }}>@</Text>
+            </View>
+
+            <TouchableOpacity
+              style={[styles.csButton, { marginTop: 20 }]}
+              onPress={handleForgotPasswordVerify}
+              disabled={forgotLoading}
+            >
+              {forgotLoading ? (
+                <ActivityIndicator color="#FFF" />
+              ) : (
+                <Text style={styles.csButtonText}>Verify Identity</Text>
+              )}
+            </TouchableOpacity>
+          </>
+        ) : (
+          <>
+            <Text style={styles.csDesc}>Set your new password</Text>
+            
+            <View style={[styles.modernInputGroup, { marginTop: 20, width: '100%' }]}>
+              <TextInput
+                style={styles.modernInput}
+                placeholder="New Password"
+                placeholderTextColor="#333"
+                value={forgotPassword.newPassword}
+                onChangeText={(t) => setForgotPassword({ ...forgotPassword, newPassword: t })}
+                secureTextEntry
+              />
+              <Lock color="#444" size={20} />
+            </View>
+
+            <TouchableOpacity
+              style={[styles.csButton, { marginTop: 20 }]}
+              onPress={handleForgotPasswordReset}
+              disabled={forgotLoading}
+            >
+              {forgotLoading ? (
+                <ActivityIndicator color="#FFF" />
+              ) : (
+                <Text style={styles.csButtonText}>Reset Password</Text>
+              )}
+            </TouchableOpacity>
+          </>
+        )}
+
+        <TouchableOpacity
+          style={[styles.csButton, { backgroundColor: '#333', marginTop: 10 }]}
+          onPress={cancelForgotPassword}
+        >
+          <Text style={styles.csButtonText}>Cancel</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+
   if (!user) {
     return (
       <View style={styles.loginContainer}>
         <StatusBar barStyle="light-content" />
         {showComingSoon && <ComingSoon />}
+        {forgotPassword.show && <ForgotPasswordScreen />}
         <ScrollView contentContainerStyle={{ flexGrow: 1, paddingHorizontal: 30, paddingTop: 80, paddingBottom: 40 }}>
 
           <View style={{ alignItems: 'center', marginBottom: 20 }}>
@@ -676,7 +820,7 @@ export default function App() {
                 <View style={styles.miniCheck} />
                 <Text style={styles.remText}>Remember me</Text>
               </TouchableOpacity>
-              <TouchableOpacity onPress={() => setShowComingSoon(true)}>
+              <TouchableOpacity onPress={() => setForgotPassword({ ...forgotPassword, show: true })}>
                 <Text style={styles.remText}>Forgot Password?</Text>
               </TouchableOpacity>
             </View>
