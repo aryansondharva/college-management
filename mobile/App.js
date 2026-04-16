@@ -171,6 +171,14 @@ export default function App() {
   useEffect(() => {
     const checkUpdates = async () => {
       try {
+        // Check if running in Expo Go
+        const isInExpoGo = Constants.appOwnership === 'expo';
+        
+        if (isInExpoGo) {
+          console.log('Updates not supported in Expo Go - skipping update check');
+          return;
+        }
+        
         // 1. Check for JS-only updates via Expo
         const update = await Updates.checkForUpdateAsync();
         if (update.isAvailable) {
@@ -332,6 +340,14 @@ export default function App() {
   async function registerForPushNotificationsAsync() {
     let token;
     try {
+      // Check if running in Expo Go
+      const isInExpoGo = Constants.appOwnership === 'expo';
+      
+      if (isInExpoGo) {
+        console.log('Push notifications not supported in Expo Go - skipping registration');
+        return null;
+      }
+      
       if (Device.isDevice) {
         const { status: existingStatus } = await Notifications.getPermissionsAsync();
         let finalStatus = existingStatus;
@@ -519,11 +535,9 @@ export default function App() {
           contentFit="cover"
           allowsLooping={false}
           shouldPlay={true}
-          onPlaybackStatusUpdate={(status) => {
-            if (status.isLoaded && !status.isPlaying && !status.hasFinishedPlayback) {
-              // Video finished playing
-              setIntroComplete(true);
-            }
+          onEnd={() => {
+            console.log('Video finished playing');
+            setIntroComplete(true);
           }}
           onError={(error) => {
             console.log('Video playback error, switching to fallback:', error);
