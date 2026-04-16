@@ -19,7 +19,7 @@ import {
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 import { io } from 'socket.io-client';
-import { Video, ResizeMode } from 'expo-av';
+import { VideoView } from 'expo-video';
 import * as Updates from 'expo-updates';
 
 
@@ -513,17 +513,20 @@ export default function App() {
     return (
       <View style={{ flex: 1, backgroundColor: '#000', justifyContent: 'center' }}>
         <StatusBar hidden />
-        <Video
+        <VideoView
           source={require('./assets/drop.mp4')}
           style={StyleSheet.absoluteFill}
-          resizeMode={ResizeMode.COVER}
-          shouldPlay
-          isLooping={false}
-          onPlaybackStatusUpdate={(s) => {
-            if (s.didJustFinish) setIntroComplete(true);
+          contentFit="cover"
+          allowsLooping={false}
+          shouldPlay={true}
+          onPlaybackStatusUpdate={(status) => {
+            if (status.isLoaded && !status.isPlaying && !status.hasFinishedPlayback) {
+              // Video finished playing
+              setIntroComplete(true);
+            }
           }}
-          onError={(err) => {
-            console.log('Video playback error, switching to fallback:', err);
+          onError={(error) => {
+            console.log('Video playback error, switching to fallback:', error);
             setIntroVideoFailed(true);
           }}
           onLoad={() => {
