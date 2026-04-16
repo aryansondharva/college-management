@@ -507,43 +507,19 @@ export default function App() {
 
   // --- INTRO SCREEN ---
   if (!introComplete) {
-    // If video failed, show animated logo fallback
-    if (introVideoFailed) {
-      return (
-        <View style={{ flex: 1, backgroundColor: '#000', justifyContent: 'center', alignItems: 'center' }}>
-          <StatusBar hidden />
-          <Animated.View style={{ opacity: introOpacity, transform: [{ scale: introScale }], alignItems: 'center' }}>
-            <Image
-              source={require('./assets/logo.png')}
-              style={{ width: 120, height: 120, marginBottom: 20 }}
-              resizeMode="contain"
-            />
-            <Text style={{ color: '#FFF', fontSize: 32, fontWeight: '900', letterSpacing: 2 }}>Drop</Text>
-            <Text style={{ color: '#444', fontSize: 12, fontWeight: '700', marginTop: 8 }}>SMART CAMPUS</Text>
-          </Animated.View>
-        </View>
-      );
-    }
-
-    // Try video first
+    // Use animated logo fallback (video temporarily disabled due to VideoView compatibility issues)
     return (
-      <View style={{ flex: 1, backgroundColor: '#000', justifyContent: 'center' }}>
+      <View style={{ flex: 1, backgroundColor: '#000', justifyContent: 'center', alignItems: 'center' }}>
         <StatusBar hidden />
-        <VideoView
-          source={require('./assets/drop.mp4')}
-          style={StyleSheet.absoluteFill}
-          contentFit="cover"
-          allowsLooping={false}
-          autoPlay={true}
-          onEnd={() => {
-            console.log('Video finished playing');
-            setIntroComplete(true);
-          }}
-          onError={() => {
-            console.log('Video playback error, switching to fallback');
-            setIntroVideoFailed(true);
-          }}
-        />
+        <Animated.View style={{ opacity: introOpacity, transform: [{ scale: introScale }], alignItems: 'center' }}>
+          <Image
+            source={require('./assets/logo.png')}
+            style={{ width: 120, height: 120, marginBottom: 20 }}
+            resizeMode="contain"
+          />
+          <Text style={{ color: '#FFF', fontSize: 32, fontWeight: '900', letterSpacing: 2 }}>Drop</Text>
+          <Text style={{ color: '#444', fontSize: 12, fontWeight: '700', marginTop: 8 }}>SMART CAMPUS</Text>
+        </Animated.View>
       </View>
     );
   }
