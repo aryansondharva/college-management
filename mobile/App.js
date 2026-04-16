@@ -534,17 +534,14 @@ export default function App() {
           style={StyleSheet.absoluteFill}
           contentFit="cover"
           allowsLooping={false}
-          shouldPlay={true}
+          autoPlay={true}
           onEnd={() => {
             console.log('Video finished playing');
             setIntroComplete(true);
           }}
-          onError={(error) => {
-            console.log('Video playback error, switching to fallback:', error);
+          onError={() => {
+            console.log('Video playback error, switching to fallback');
             setIntroVideoFailed(true);
-          }}
-          onLoad={() => {
-            console.log('Intro video loaded successfully');
           }}
         />
       </View>
