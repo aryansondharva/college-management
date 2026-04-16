@@ -43,6 +43,12 @@ const TIMETABLE_CACHE_KEY = 'drop:timetable-cache:v1';
 const SYLLABUS_CACHE_KEY = 'drop:syllabus-cache:v1';
 const NOTIFICATION_CACHE_KEY = 'drop:notifications-cache:v1';
 const DAY_ORDER = { Monday: 1, Tuesday: 2, Wednesday: 3, Thursday: 4, Friday: 5, Saturday: 6, Sunday: 7 };
+const ALL_COURSES_KEY = '0';
+const getLocalISODate = () => {
+  const now = new Date();
+  const local = new Date(now.getTime() - now.getTimezoneOffset() * 60000);
+  return local.toISOString().split('T')[0];
+};
 
 export default function App() {
 
@@ -79,7 +85,7 @@ export default function App() {
     class_id: '',
     section_id: '',
     course_id: '',
-    date: new Date().toISOString().split('T')[0]
+    date: getLocalISODate()
   });
   const [teacherSessions, setTeacherSessions] = useState([]);
   const [teacherClasses, setTeacherClasses] = useState([]);
@@ -596,7 +602,7 @@ export default function App() {
           a.student_id === student.id &&
           (!teacherFilters.course_id || String(a.course_id || '') === String(teacherFilters.course_id))
         );
-        initialMap[student.id] = { [teacherFilters.course_id || '0']: record ? !!record.present : false };
+        initialMap[String(student.id)] = { [teacherFilters.course_id || ALL_COURSES_KEY]: record ? !!record.present : false };
       });
 
       setTeacherStudents(students);
@@ -610,7 +616,7 @@ export default function App() {
   };
 
   const toggleTeacherAttendance = (studentId) => {
-    const courseKey = teacherFilters.course_id || '0';
+    const courseKey = teacherFilters.course_id || ALL_COURSES_KEY;
     setTeacherAttendanceMap(prev => ({
       ...prev,
       [studentId]: {
@@ -627,7 +633,7 @@ export default function App() {
     }
     setTeacherSaving(true);
     try {
-      const courseKey = teacherFilters.course_id || '0';
+      const courseKey = teacherFilters.course_id || ALL_COURSES_KEY;
       const attendance_data = Object.keys(teacherAttendanceMap)
         .map(id => ({
         student_id: parseInt(id, 10),
@@ -669,8 +675,8 @@ export default function App() {
       const report = res?.data?.report || [];
       const transformed = report.map((student) => {
         const subjectStats = Object.values(student?.subjects || {});
-        const attended = subjectStats.reduce((sum, s) => sum + (parseInt(s?.attended || 0) || 0), 0);
-        const total = subjectStats.reduce((sum, s) => sum + (parseInt(s?.total || 0) || 0), 0);
+        const attended = subjectStats.reduce((sum, s) => sum + (Number(s?.attended) || 0), 0);
+        const total = subjectStats.reduce((sum, s) => sum + (Number(s?.total) || 0), 0);
         return {
           ...student,
           attended,
@@ -2214,7 +2220,7 @@ function TeacherAttendanceScreen({
 
         <Text style={styles.sectionHeader}>Student List</Text>
         {(teacherStudents || []).map((student) => {
-          const key = teacherFilters.course_id || '0';
+          const key = teacherFilters.course_id || ALL_COURSES_KEY;
           const present = !!teacherAttendanceMap?.[student.id]?.[key];
           return (
             <TouchableOpacity key={student.id} style={styles.contactCard} onPress={() => toggleTeacherAttendance(student.id)}>
