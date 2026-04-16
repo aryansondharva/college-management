@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
   StyleSheet,
   Text,
@@ -43,7 +43,7 @@ const TIMETABLE_CACHE_KEY = 'drop:timetable-cache:v1';
 const SYLLABUS_CACHE_KEY = 'drop:syllabus-cache:v1';
 const NOTIFICATION_CACHE_KEY = 'drop:notifications-cache:v1';
 const DAY_ORDER = { Monday: 1, Tuesday: 2, Wednesday: 3, Thursday: 4, Friday: 5, Saturday: 6, Sunday: 7 };
-const ALL_COURSES_KEY = '0';
+const DEFAULT_COURSE_KEY = '0';
 const getLocalISODate = () => {
   const now = new Date();
   const local = new Date(now.getTime() - now.getTimezoneOffset() * 60000);
@@ -197,8 +197,15 @@ export default function App() {
 
   const getSafeFileUrl = (filePath) => {
     const safePath = String(filePath || '').trim().replace(/^\/+/, '');
-    if (!safePath || safePath.includes('..') || /^https?:\/\//i.test(safePath)) return null;
-    return `${SOCKET_URL}/${encodeURI(safePath)}`;
+    if (!safePath || /^https?:\/\//i.test(safePath)) return null;
+    let decodedPath = safePath;
+    try {
+      decodedPath = decodeURIComponent(safePath);
+    } catch {
+      decodedPath = safePath;
+    }
+    if (!decodedPath || decodedPath.includes('..') || decodedPath.startsWith('/')) return null;
+    return `${SOCKET_URL}/${encodeURI(decodedPath)}`;
   };
 
   const fetchLearningData = useCallback(async () => {
@@ -590,7 +597,14 @@ export default function App() {
     try {
       const [studentRes, attendRes] = await Promise.all([
         client.get('/users/students', { params: teacherFilters }),
-        client.get('/attendance', { params: teacherFilters })
+        client.get('/attendance', {
+          params: {
+            session_id: teacherFilters.session_id,
+            class_id: teacherFilters.class_id,
+            section_id: teacherFilters.section_id,
+            date: teacherFilters.date
+          }
+        })
       ]);
 
       const students = studentRes?.data?.students || [];
@@ -598,11 +612,20 @@ export default function App() {
       const initialMap = {};
 
       students.forEach((student) => {
-        const record = attendances.find((a) =>
-          a.student_id === student.id &&
-          (!teacherFilters.course_id || String(a.course_id || '') === String(teacherFilters.course_id))
-        );
-        initialMap[String(student.id)] = { [teacherFilters.course_id || ALL_COURSES_KEY]: record ? !!record.present : false };
+        const subjectsMap = {};
+        attendances
+          .filter((a) => a.student_id === student.id)
+          .forEach((a) => {
+            const key = String(a.course_id || DEFAULT_COURSE_KEY);
+            subjectsMap[key] = !!a.present;
+          });
+
+        const selectedKey = teacherFilters.course_id || DEFAULT_COURSE_KEY;
+        if (subjectsMap[selectedKey] === undefined) {
+          subjectsMap[selectedKey] = false;
+        }
+
+        initialMap[String(student.id)] = subjectsMap;
       });
 
       setTeacherStudents(students);
@@ -616,7 +639,7 @@ export default function App() {
   };
 
   const toggleTeacherAttendance = (studentId) => {
-    const courseKey = teacherFilters.course_id || ALL_COURSES_KEY;
+    const courseKey = teacherFilters.course_id || DEFAULT_COURSE_KEY;
     setTeacherAttendanceMap(prev => ({
       ...prev,
       [studentId]: {
@@ -633,13 +656,10 @@ export default function App() {
     }
     setTeacherSaving(true);
     try {
-      const courseKey = teacherFilters.course_id || ALL_COURSES_KEY;
       const attendance_data = Object.keys(teacherAttendanceMap)
         .map(id => ({
         student_id: parseInt(id, 10),
-        subjects: {
-          [courseKey]: !!teacherAttendanceMap[id]?.[courseKey]
-        }
+        subjects: teacherAttendanceMap[id] || {}
       }))
         .filter(item => !Number.isNaN(item.student_id));
 
@@ -1960,12 +1980,14 @@ function AssignmentsScreen({ assignments, loading, timetable, timetableLoading, 
     return audience === 'failure' ? '#FF5A5F' : '#121212';
   };
 
-  const groupedTimetable = (timetable || []).reduce((acc, item) => {
-    const day = item?.day_of_week || 'Other';
-    if (!acc[day]) acc[day] = [];
-    acc[day].push(item);
-    return acc;
-  }, {});
+  const groupedTimetable = useMemo(() => {
+    return (timetable || []).reduce((acc, item) => {
+      const day = item?.day_of_week || 'Other';
+      if (!acc[day]) acc[day] = [];
+      acc[day].push(item);
+      return acc;
+    }, {});
+  }, [timetable]);
 
   return (
     <View style={{ flex: 1, backgroundColor: '#FFF' }}>
@@ -2220,7 +2242,7 @@ function TeacherAttendanceScreen({
 
         <Text style={styles.sectionHeader}>Student List</Text>
         {(teacherStudents || []).map((student) => {
-          const key = teacherFilters.course_id || ALL_COURSES_KEY;
+          const key = teacherFilters.course_id || DEFAULT_COURSE_KEY;
           const present = !!teacherAttendanceMap?.[student.id]?.[key];
           return (
             <TouchableOpacity key={student.id} style={styles.contactCard} onPress={() => toggleTeacherAttendance(student.id)}>
