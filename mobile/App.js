@@ -1991,13 +1991,30 @@ function AssignmentsScreen({ assignments, loading, timetable, timetableLoading, 
 
   return (
     <View style={{ flex: 1, backgroundColor: '#FFF' }}>
-      <View style={[styles.header, { paddingBottom: 25 }]}>
-        <Text style={styles.welcome}>My Allotted Work</Text>
-        <Text style={styles.userName}>Active Tasks</Text>
-        <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 10 }}>
-          <View style={{ backgroundColor: '#2ecc7120', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20 }}>
-            <Text style={{ color: '#2ecc71', fontWeight: '900', fontSize: 13 }}>{assignments.length} Pending</Text>
-          </View>
+      <View style={[styles.header, { paddingBottom: 15 }]}>
+        <Text style={styles.welcome}>Organize Your Work</Text>
+        <Text style={styles.userName}>Task Dashboard</Text>
+        
+        {/* Sub-Tabs for Status */}
+        <View style={{ flexDirection: 'row', marginTop: 25, backgroundColor: '#222', borderRadius: 15, padding: 5 }}>
+          <TouchableOpacity 
+            style={{ flex: 1, paddingVertical: 10, alignItems: 'center', backgroundColor: activeStatus === 'pending' ? '#333' : 'transparent', borderRadius: 12 }}
+            onPress={() => setActiveStatus('pending')}
+          >
+            <Text style={{ color: activeStatus === 'pending' ? '#FFF' : '#666', fontSize: 11, fontWeight: '900' }}>PENDING</Text>
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={{ flex: 1, paddingVertical: 10, alignItems: 'center', backgroundColor: activeStatus === 'working' ? '#333' : 'transparent', borderRadius: 12 }}
+            onPress={() => setActiveStatus('working')}
+          >
+            <Text style={{ color: activeStatus === 'working' ? '#FFF' : '#666', fontSize: 11, fontWeight: '900' }}>WORKING</Text>
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={{ flex: 1, paddingVertical: 10, alignItems: 'center', backgroundColor: activeStatus === 'completed' ? '#333' : 'transparent', borderRadius: 12 }}
+            onPress={() => setActiveStatus('completed')}
+          >
+            <Text style={{ color: activeStatus === 'completed' ? '#FFF' : '#666', fontSize: 11, fontWeight: '900' }}>COMPLETED</Text>
+          </TouchableOpacity>
         </View>
       </View>
 
@@ -2033,7 +2050,7 @@ function AssignmentsScreen({ assignments, loading, timetable, timetableLoading, 
 
         <Text style={styles.sectionHeader}>Upcoming Deadlines</Text>
         
-        {assignments.map((task) => (
+        {filteredTasks.map((task) => (
           <View key={task.id} style={styles.taskCard}>
             <View style={styles.taskHeader}>
               <View style={[styles.taskBadge, { backgroundColor: getBadgeColor(task.target_audience) }]}>
@@ -2071,18 +2088,57 @@ function AssignmentsScreen({ assignments, loading, timetable, timetableLoading, 
                   Due: {task.deadline ? new Date(task.deadline).toLocaleDateString() : 'N/A'}
                 </Text>
               </View>
-              <TouchableOpacity style={styles.taskBtn}>
-                <Text style={styles.taskBtnText}>View Details</Text>
-              </TouchableOpacity>
+              
+              <View style={{ flexDirection: 'row', gap: 8 }}>
+                {activeStatus === 'pending' && (
+                  <TouchableOpacity 
+                    style={[styles.taskBtn, { backgroundColor: '#f1c40f20' }]}
+                    onPress={() => updateStatus(task.id, 'working')}
+                    disabled={updatingId === task.id}
+                  >
+                    <Text style={[styles.taskBtnText, { color: '#f1c40f' }]}>Start Work</Text>
+                  </TouchableOpacity>
+                )}
+                {activeStatus === 'working' && (
+                  <TouchableOpacity 
+                    style={[styles.taskBtn, { backgroundColor: '#2ecc7120' }]}
+                    onPress={() => updateStatus(task.id, 'completed')}
+                    disabled={updatingId === task.id}
+                  >
+                    <Text style={[styles.taskBtnText, { color: '#2ecc71' }]}>Finish</Text>
+                  </TouchableOpacity>
+                )}
+                {activeStatus === 'completed' && (
+                  <TouchableOpacity 
+                    style={[styles.taskBtn, { backgroundColor: '#eee' }]}
+                    onPress={() => updateStatus(task.id, 'pending')}
+                    disabled={updatingId === task.id}
+                  >
+                    <Text style={[styles.taskBtnText, { color: '#888' }]}>Re-open</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
             </View>
           </View>
         ))}
 
-        {assignments.length === 0 && (
+        {filteredTasks.length === 0 && (
           <View style={{ padding: 60, alignItems: 'center' }}>
-            <Calendar size={50} color="#EEE" />
-            <Text style={{ color: '#BBB', fontWeight: '700', marginTop: 20 }}>All caught up!</Text>
-            <Text style={{ color: '#DDD', fontSize: 12, marginTop: 5 }}>No active tasks allotted to you.</Text>
+             {activeStatus === 'completed' ? (
+               <View style={{ alignItems: 'center' }}>
+                 <View style={{ width: 60, height: 60, borderRadius: 30, backgroundColor: '#2ecc7110', justifyContent: 'center', alignItems: 'center' }}>
+                   <BookOpen size={30} color="#2ecc71" />
+                 </View>
+                 <Text style={{ color: '#BBB', fontWeight: '700', marginTop: 20 }}>No completed work</Text>
+                 <Text style={{ color: '#DDD', fontSize: 12, marginTop: 5, textAlign: 'center' }}>Start working on your pending tasks to see them here.</Text>
+               </View>
+             ) : (
+               <View style={{ alignItems: 'center' }}>
+                 <Calendar size={50} color="#EEE" />
+                 <Text style={{ color: '#BBB', fontWeight: '700', marginTop: 20 }}>No {activeStatus} tasks</Text>
+                 <Text style={{ color: '#DDD', fontSize: 12, marginTop: 5, textAlign: 'center' }}>You are all caught up for this category.</Text>
+               </View>
+             )}
           </View>
         )}
 
@@ -2581,6 +2637,7 @@ const styles = StyleSheet.create({
   taskDesc: { fontSize: 13, color: '#666', lineHeight: 20, marginBottom: 15 },
   taskFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingTop: 15, borderTopWidth: 1, borderTopColor: '#F5F5F5' },
   taskDueDate: { fontSize: 11, fontWeight: '800', color: '#AAA', marginLeft: 6 },
+  taskBtn: { paddingHorizontal: 15, paddingVertical: 8, borderRadius: 10, backgroundColor: '#F5F5F5' },
   taskBtnText: { fontSize: 12, fontWeight: '800', color: '#121212' },
   attachmentPin: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#e1f5fe', padding: 10, borderRadius: 10, marginBottom: 15 },
   attachmentText: { color: '#01579b', fontSize: 12, fontWeight: '800', marginLeft: 8 },

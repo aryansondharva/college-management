@@ -15,11 +15,14 @@ router.get('/', authenticate, async (req, res) => {
 
     if (req.user.role === 'student') {
         // Students see assignments for 'everyone' or where they are specifically listed
+        // JOIN with status table to get their individual status
         query = `
-            SELECT a.*, u.first_name as teacher_first, u.last_name as teacher_last, c.name as course_name
+            SELECT a.*, u.first_name as teacher_first, u.last_name as teacher_last, c.name as course_name,
+                   COALESCE(sas.status, 'pending') as student_status
             FROM assignments a
             JOIN users u ON u.id = a.created_by
             JOIN courses c ON c.id = a.course_id
+            LEFT JOIN student_assignment_statuses sas ON sas.assignment_id = a.id AND sas.student_id = $1
             WHERE a.class_id = (SELECT class_id FROM student_academic_infos WHERE student_id = $1)
             AND (a.target_audience = 'everyone' OR a.specific_student_ids @> $2::jsonb)
         `;
@@ -119,6 +122,35 @@ router.post('/', authenticate, async (req, res) => {
         details: err.message,
         hint: 'Ensure all fields are valid and IDs are integers.'
     });
+  }
+});
+
+// PUT /api/assignments/:id/status
+router.put('/:id/status', authenticate, async (req, res) => {
+  try {
+    if (req.user.role !== 'student') {
+        return res.status(403).json({ message: 'Only students can update their assignment status.' });
+    }
+    
+    const { status } = req.body;
+    const assignment_id = req.params.id;
+
+    if (!['pending', 'working', 'completed'].includes(status)) {
+        return res.status(400).json({ message: 'Invalid status. Must be pending, working, or completed.' });
+    }
+
+    await db.query(
+      `INSERT INTO student_assignment_statuses (student_id, assignment_id, status, updated_at)
+       VALUES ($1, $2, $3, NOW())
+       ON CONFLICT (student_id, assignment_id)
+       DO UPDATE SET status = EXCLUDED.status, updated_at = NOW()`,
+      [req.user.id, assignment_id, status]
+    );
+
+    res.json({ message: 'Status updated successfully.', status });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Server error.', error: err.message });
   }
 });
 
