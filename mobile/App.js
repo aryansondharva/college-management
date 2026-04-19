@@ -1504,9 +1504,6 @@ export default function App() {
           <AssignmentsScreen
             assignments={assignments}
             loading={loading}
-            timetable={timetable}
-            timetableLoading={timetableLoading}
-            timetableOffline={timetableOffline}
             fetchAssignments={fetchAssignments}
           />
         )
@@ -1976,7 +1973,7 @@ function ChatScreen({
   );
 }
 
-function AssignmentsScreen({ assignments, loading, timetable, timetableLoading, timetableOffline, fetchAssignments }) {
+function AssignmentsScreen({ assignments, loading, fetchAssignments }) {
   const [activeStatus, setActiveStatus] = useState('pending');
   const [updatingId, setUpdatingId] = useState(null);
 
@@ -1998,14 +1995,7 @@ function AssignmentsScreen({ assignments, loading, timetable, timetableLoading, 
     return audience === 'failure' ? '#FF5A5F' : '#121212';
   };
 
-  const groupedTimetable = useMemo(() => {
-    return (timetable || []).reduce((acc, item) => {
-      const day = item?.day_of_week || 'Other';
-      if (!acc[day]) acc[day] = [];
-      acc[day].push(item);
-      return acc;
-    }, {});
-  }, [timetable]);
+
 
   return (
     <View style={{ flex: 1, backgroundColor: '#FFF' }}>
@@ -2037,34 +2027,7 @@ function AssignmentsScreen({ assignments, loading, timetable, timetableLoading, 
       </View>
 
       <ScrollView style={styles.main} showsVerticalScrollIndicator={false}>
-        <Text style={styles.sectionHeader}>Weekly Timetable {timetableOffline ? '(Offline)' : ''}</Text>
-        {timetableLoading ? (
-          <ActivityIndicator size="small" color="#121212" style={{ marginVertical: 10 }} />
-        ) : (
-          Object.keys(groupedTimetable)
-            .sort((a, b) => (DAY_ORDER[a] || 99) - (DAY_ORDER[b] || 99))
-            .map((day) => (
-              <View key={day} style={styles.taskCard}>
-                <Text style={[styles.taskTitle, { fontSize: 16, marginBottom: 10 }]}>{day}</Text>
-                {(groupedTimetable[day] || [])
-                  .sort((a, b) => String(a?.start_time || '').localeCompare(String(b?.start_time || '')))
-                  .map((slot) => (
-                    <View key={slot.id} style={styles.timetableRow}>
-                      <View style={{ flex: 1 }}>
-                        <Text style={styles.timetableSubject}>{slot.course_name || 'Subject'}</Text>
-                        <Text style={styles.timetableMeta}>
-                          {slot.start_time?.slice(0, 5) || '--:--'} - {slot.end_time?.slice(0, 5) || '--:--'}
-                        </Text>
-                      </View>
-                      <Text style={styles.timetableRoom}>{slot.room_no || 'Room -'}</Text>
-                    </View>
-                  ))}
-              </View>
-            ))
-        )}
-        {!timetableLoading && (timetable || []).length === 0 && (
-          <Text style={{ color: '#BBB', fontWeight: '700', marginBottom: 20 }}>No timetable data found.</Text>
-        )}
+
 
         <Text style={styles.sectionHeader}>Upcoming Deadlines</Text>
         
