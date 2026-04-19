@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "Drop",
-    "slug": "drop",
+    "slug": "drop-college",
     "version": "1.0.2",
     "orientation": "portrait",
     "icon": "./drop-icon.png",
@@ -29,14 +29,13 @@
     },
     "extra": {
       "eas": {
-        "projectId": "f1700831-6a33-498e-9058-501039a99a14"
+        "projectId": "580231f1-fa28-4e05-bd5f-ce000d073dba"
       }
     },
     "runtimeVersion": {
       "policy": "appVersion"
     },
-    "updates": {
-      "url": "https://u.expo.dev/f1700831-6a33-498e-9058-501039a99a14"
-    }
+    "updates": {},
+    "owner": "cutieedobiiee"
   }
 }
