@@ -1507,6 +1507,7 @@ export default function App() {
             timetable={timetable}
             timetableLoading={timetableLoading}
             timetableOffline={timetableOffline}
+            fetchAssignments={fetchAssignments}
           />
         )
       )}
@@ -1975,7 +1976,24 @@ function ChatScreen({
   );
 }
 
-function AssignmentsScreen({ assignments, loading, timetable, timetableLoading, timetableOffline }) {
+function AssignmentsScreen({ assignments, loading, timetable, timetableLoading, timetableOffline, fetchAssignments }) {
+  const [activeStatus, setActiveStatus] = useState('pending');
+  const [updatingId, setUpdatingId] = useState(null);
+
+  const updateStatus = async (id, newStatus) => {
+    setUpdatingId(id);
+    try {
+      await client.put(`/assignments/${id}/status`, { status: newStatus });
+      fetchAssignments();
+    } catch (err) {
+      Alert.alert('Error', 'Failed to update task status');
+    } finally {
+      setUpdatingId(null);
+    }
+  };
+
+  const filteredTasks = assignments.filter(t => (t.student_status || 'pending') === activeStatus);
+
   const getBadgeColor = (audience) => {
     return audience === 'failure' ? '#FF5A5F' : '#121212';
   };
