@@ -2,6 +2,11 @@ import React, { useState, useEffect, useContext } from 'react';
 import api from '../api';
 import { AuthContext } from '../context/AuthContext';
 
+const getApiOrigin = () => {
+    const configuredBaseUrl = import.meta.env.VITE_API_URL || api.defaults.baseURL || '/api';
+    return configuredBaseUrl.replace(/\/api\/?$/, '');
+};
+
 const ManageSyllabus = () => {
     const { user } = useContext(AuthContext);
     const [classes, setClasses] = useState([]);
@@ -19,11 +24,7 @@ const ManageSyllabus = () => {
         file: null
     });
 
-    useEffect(() => {
-        fetchInitialData();
-    }, []);
-
-    const fetchInitialData = async () => {
+    async function fetchInitialData() {
         try {
             const [classesRes, sessionsRes] = await Promise.all([
                 api.get('/classes'),
@@ -33,17 +34,21 @@ const ManageSyllabus = () => {
             setSessions(sessionsRes.data.sessions);
             const currentSession = sessionsRes.data.sessions.find(s => s.is_current);
             if (currentSession) setSelectedSession(currentSession.id);
-        } catch (err) {
+        } catch {
             setError('Failed to fetch initial data.');
         }
-    };
+    }
+
+    useEffect(() => {
+        fetchInitialData();
+    }, []);
 
     const fetchCourses = async (classId) => {
         if (!classId) return;
         try {
             const res = await api.get(`/courses?class_id=${classId}`);
             setCourses(res.data.courses);
-        } catch (err) {
+        } catch {
             setError('Failed to fetch courses.');
         }
     };
@@ -60,7 +65,7 @@ const ManageSyllabus = () => {
             const res = await api.get(`/syllabus?course_id=${selectedCourse}&session_id=${selectedSession}`);
             setSyllabi(res.data.syllabi);
             setLoading(false);
-        } catch (err) {
+        } catch {
             setError('Failed to fetch syllabi.');
             setLoading(false);
         }
@@ -76,12 +81,12 @@ const ManageSyllabus = () => {
         formData.append('file', newSyllabus.file);
 
         try {
-            await axios.post('http://localhost:5000/api/syllabus', formData, {
+            await api.post('/syllabus', formData, {
                 headers: { 'Content-Type': 'multipart/form-data' }
             });
             fetchSyllabi();
             setNewSyllabus({ syllabus_name: '', file: null });
-        } catch (err) {
+        } catch {
             setError('Failed to upload syllabus.');
         }
     };
@@ -91,7 +96,7 @@ const ManageSyllabus = () => {
         try {
             await api.delete(`/syllabus/${id}`);
             fetchSyllabi();
-        } catch (err) {
+        } catch {
             setError('Failed to delete syllabus.');
         }
     };
@@ -174,7 +179,7 @@ const ManageSyllabus = () => {
                                             <td>{s.syllabus_name}</td>
                                             <td>{new Date(s.created_at).toLocaleDateString()}</td>
                                             <td>
-                                                <a href={`http://localhost:5000/${s.file_path}`} target="_blank" className="btn btn-sm btn-outline-primary me-2">Download</a>
+                                                <a href={`${getApiOrigin()}/${s.file_path}`} target="_blank" rel="noreferrer" className="btn btn-sm btn-outline-primary me-2">Download</a>
                                                 {user.role === 'admin' && (
                                                     <button className="btn btn-sm btn-outline-danger" onClick={() => handleDeleteSyllabus(s.id)}>Delete</button>
                                                 )}

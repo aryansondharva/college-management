@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useContext } from 'react';
 import api from '../api';
-import axios from 'axios';
 import { AuthContext } from '../context/AuthContext';
 
 const AcademicSettings = () => {
@@ -9,30 +8,29 @@ const AcademicSettings = () => {
         attendance_type: 'Daily',
         final_marks_submission_status: 'closed'
     });
-    const [loading, setLoading] = useState(false);
     const [message, setMessage] = useState({ text: '', type: '' });
 
-    useEffect(() => {
-        fetchSettings();
-    }, []);
-
-    const fetchSettings = async () => {
+    async function fetchSettings() {
         try {
             const res = await api.get('/academic-settings');
             if (res.data.academicSetting) {
                 setSettings(res.data.academicSetting);
             }
-        } catch (err) {
+        } catch {
             setMessage({ text: 'Failed to fetch settings.', type: 'danger' });
         }
-    };
+    }
+
+    useEffect(() => {
+        fetchSettings();
+    }, []);
 
     const handleUpdateAttendance = async (type) => {
         try {
             await api.post('/academic-settings/attendance-type', { attendance_type: type });
             setSettings({ ...settings, attendance_type: type });
             setMessage({ text: 'Attendance type updated successfully!', type: 'success' });
-        } catch (err) {
+        } catch {
             setMessage({ text: 'Failed to update attendance type.', type: 'danger' });
         }
     };
@@ -42,13 +40,13 @@ const AcademicSettings = () => {
             await api.post('/academic-settings/final-marks-submission', { status });
             setSettings({ ...settings, final_marks_submission_status: status });
             setMessage({ text: 'Marks submission status updated successfully!', type: 'success' });
-        } catch (err) {
+        } catch {
             setMessage({ text: 'Failed to update marks submission status.', type: 'danger' });
         }
     };
 
     if (user.role !== 'admin') {
-        return <Layout><div className="container py-5 text-center"><h3>Access Denied</h3></div></Layout>;
+        return <div className="container py-5 text-center"><h3>Access Denied</h3></div>;
     }
 
     return (
